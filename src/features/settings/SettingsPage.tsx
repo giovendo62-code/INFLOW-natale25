@@ -43,7 +43,7 @@ export const SettingsPage: React.FC = () => {
     ];
 
     // Split tabs into contexts
-    const studioGroup = ['studio', 'contract', 'team'];
+    const studioGroup = ['studio', 'team'];
     const isStudioContext = studioGroup.includes(activeTab);
 
     const visibleTabs = tabs.filter(t => {

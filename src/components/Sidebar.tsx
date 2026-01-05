@@ -41,7 +41,7 @@ export const NAV_ITEMS: NavItem[] = [
     { label: 'Dashboard Academy', path: '/', icon: LayoutDashboard, allowedRoles: ['STUDENT', 'student'] },
 
     // Owner-only items
-    { label: 'Studio', path: '/settings?tab=studio', icon: Building, allowedRoles: ['owner', 'STUDIO_ADMIN', 'MANAGER', 'ARTIST'] },
+    { label: 'Studio', path: '/settings?tab=studio', icon: Building, allowedRoles: ['owner', 'STUDIO_ADMIN', 'MANAGER'] },
     { label: 'Team', path: '/team', icon: UserCog, allowedRoles: ['owner'] },
 
     // Operational items - Owner + Management + Artists (Demo aligned)
