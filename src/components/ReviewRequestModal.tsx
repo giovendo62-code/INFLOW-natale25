@@ -1,5 +1,4 @@
 
-import React from 'react';
 import { MessageCircle, Star } from 'lucide-react';
 
 interface ReviewRequestModalProps {

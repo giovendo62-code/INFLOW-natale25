@@ -1,7 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar as CalIcon, Users, Filter, Download } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalIcon, Users } from 'lucide-react';
 import type { CalendarView } from '../hooks/useCalendar';
 import type { User } from '../../../services/types';
 import clsx from 'clsx';
@@ -35,14 +35,6 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
     onSync,
     userRole
 }) => {
-    const handleDownload = () => {
-        alert('Simulazione Download Report Finanziario / Calendario...');
-    };
-
-    const handleQuickFilter = () => {
-        alert('Filtri avanzati disponibili nella versione completa.');
-    };
-
     return (
         <div className="flex flex-col gap-4 mb-6">
             {/* Top Row: Date and Navigation */}

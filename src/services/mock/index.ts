@@ -317,6 +317,16 @@ export class MockRepository implements IRepository {
             localStorage.removeItem('inkflow_mock_session');
         },
 
+        resetPasswordForEmail: async (email: string, redirectTo: string): Promise<void> => {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            console.log(`[MOCK] Reset password email sent to ${email} with redirect ${redirectTo}`);
+        },
+
+        updatePassword: async (password: string): Promise<void> => {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            console.log(`[MOCK] Password updated to ${password}`);
+        },
+
         getCurrentUser: async (): Promise<User | null> => {
             const sessionStr = localStorage.getItem('inkflow_mock_session');
             if (!sessionStr) return null;
