@@ -132,13 +132,15 @@ export const ClientsList: React.FC = () => {
                     <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
                         {/* Action Buttons Group */}
                         <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
-                            <button
-                                onClick={() => setShowImport(true)}
-                                className="flex items-center gap-2 bg-green-600/10 border border-green-600/20 hover:bg-green-600/20 text-green-500 px-3 py-2 rounded-lg font-medium transition-colors whitespace-nowrap"
-                                title="Importa da Google Sheets"
-                            >
-                                <span className="hidden lg:inline">Importa Google</span>
-                            </button>
+                            {user?.role === 'owner' && (
+                                <button
+                                    onClick={() => setShowImport(true)}
+                                    className="flex items-center gap-2 bg-green-600/10 border border-green-600/20 hover:bg-green-600/20 text-green-500 px-3 py-2 rounded-lg font-medium transition-colors whitespace-nowrap"
+                                    title="Importa da Google Sheets"
+                                >
+                                    <span className="hidden lg:inline">Importa Google</span>
+                                </button>
+                            )}
                             <button
                                 onClick={() => setShowQR(true)}
                                 className="flex items-center gap-2 bg-accent/10 border border-accent/20 hover:bg-accent/20 text-accent px-3 py-2 rounded-lg font-medium transition-colors whitespace-nowrap"

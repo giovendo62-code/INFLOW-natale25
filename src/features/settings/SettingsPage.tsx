@@ -40,7 +40,7 @@ export const SettingsPage: React.FC = () => {
         ...(['owner', 'studio_admin'].includes(normalizedRole) ? [{ id: 'studio', label: 'Info Studio', icon: Building }] : []),
         // Show Contract for ARTIST
         ...(['artist'].includes(normalizedRole) ? [{ id: 'contract', label: 'Il Mio Contratto', icon: FileText }] : []),
-        { id: 'integrations', label: 'Integrazioni', icon: Link },
+        ...(['owner'].includes(normalizedRole) ? [{ id: 'integrations', label: 'Integrazioni', icon: Link }] : []),
         { id: 'appearance', label: 'Aspetto', icon: Palette },
     ];
 
