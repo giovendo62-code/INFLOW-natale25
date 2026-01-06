@@ -1,4 +1,4 @@
-import { supabaseClient as supabase } from '../../lib/supabaseClient';
+import { supabase } from '../../lib/supabase';
 
 import type { IRepository, AuthSession, User, Appointment, Client, Transaction, FinancialStats, CourseMaterial, StudentAttendance, ClientConsent, ArtistContract, PresenceLog, MarketingCampaign, WaitlistEntry, Course, Communication, CommunicationReply, ConsentTemplate, CourseEnrollment, AttendanceLog, UserRole, Studio } from '../types';
 

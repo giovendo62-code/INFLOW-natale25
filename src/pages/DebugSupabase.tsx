@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from 'react';
-import { supabaseClient } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabase';
 
 export const DebugSupabase = () => {
     const [status, setStatus] = useState<string>('Connecting...');
@@ -10,7 +10,7 @@ export const DebugSupabase = () => {
         const checkConnection = async () => {
             try {
                 // Testing connection by getting the session (no restart needed, just a ping)
-                const { data: _data, error } = await supabaseClient.auth.getSession();
+                const { data: _data, error } = await supabase.auth.getSession();
 
                 if (error) {
                     setStatus('Error connecting');
