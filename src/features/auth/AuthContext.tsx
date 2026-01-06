@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async function signUp(email: string, password: string): Promise<boolean> {
         setIsLoading(true);
         try {
-            const session = await api.auth.signUp(email, password);
+            const session = await api.auth.signUp(email, password, window.location.origin);
             if (session && session.user) {
                 session.user.role = normalizeRole(session.user.role);
                 setUser(session.user);
