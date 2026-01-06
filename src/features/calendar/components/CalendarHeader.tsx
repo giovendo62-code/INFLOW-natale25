@@ -58,34 +58,17 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 w-full sm:w-auto min-w-0">
-                    <button
-                        onClick={handleQuickFilter}
-                        className="flex items-center justify-center gap-2 bg-bg-secondary hover:bg-white/10 text-text-muted hover:text-white px-2 sm:px-3 py-2 rounded-lg border border-border transition-colors text-xs sm:text-sm min-w-0"
-                        title="Filtri avanzati"
-                    >
-                        <Filter size={14} className="sm:size-4 shrink-0" />
-                        <span className="truncate">Filtra</span>
-                    </button>
-                    <button
-                        onClick={handleDownload}
-                        className="flex items-center justify-center gap-2 bg-bg-secondary hover:bg-white/10 text-text-muted hover:text-white px-2 sm:px-3 py-2 rounded-lg border border-border transition-colors text-xs sm:text-sm min-w-0"
-                        title="Scarica Report Finanze"
-                    >
-                        <Download size={14} className="sm:size-4 shrink-0" />
-                        <span className="truncate">Finanze</span>
-                    </button>
-                </div>
 
-                {/* Sync Button (Owner only) - Top Row */}
+
+                {/* Sync Button (Owner only) */}
                 {userRole?.toLowerCase() === 'owner' && onSync && (
                     <button
                         onClick={onSync}
-                        className="flex items-center justify-center gap-2 bg-bg-secondary hover:bg-white/10 text-text-muted hover:text-white px-2 sm:px-3 py-2 rounded-lg border border-border transition-colors text-xs sm:text-sm min-w-0"
-                        title="Sincronizza Google Calendar"
+                        className="flex items-center justify-center gap-2 bg-white text-black hover:bg-gray-100 px-4 py-2 rounded-lg transition-all font-medium text-sm shadow-sm w-full sm:w-auto"
+                        title="Gestisci Google Calendar"
                     >
-                        <img src="https://www.google.com/favicon.ico" alt="Google" className="size-3 sm:size-4 shrink-0" />
-                        <span className="truncate hidden sm:inline">Sync</span>
+                        <img src="https://www.google.com/favicon.ico" alt="Google" className="size-4" />
+                        <span>Google Calendar</span>
                     </button>
                 )}
             </div>

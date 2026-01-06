@@ -288,8 +288,10 @@ export const Calendar: React.FC = () => {
 
     return (
         <div className={clsx(
-            "flex flex-col relative transition-all duration-300 h-full p-4 pt-20 md:pt-8 overflow-hidden",
-            isMobileFullscreen && "fixed inset-0 z-[100] bg-bg-primary pb-safe"
+            "flex flex-col relative transition-all duration-300 h-full overflow-hidden",
+            isMobileFullscreen
+                ? "fixed inset-0 z-[100] bg-bg-primary p-2 pt-safe pb-safe"
+                : "p-4 pt-20 md:pt-8"
         )}>
             <div className="flex justify-end mb-2">
                 <button

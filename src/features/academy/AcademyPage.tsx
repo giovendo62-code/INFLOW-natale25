@@ -398,7 +398,40 @@ export const AcademyPage: React.FC = () => {
                                 Elenco degli studenti che hanno accettato l'invito e si sono registrati alla piattaforma.
                             </p>
 
-                            <div className="overflow-x-auto">
+                            {/* Mobile Card View */}
+                            <div className="md:hidden space-y-4">
+                                {students.length === 0 ? (
+                                    <div className="text-center py-8 text-text-muted italic bg-bg-tertiary/20 rounded-lg">
+                                        Nessuno studente connesso al momento.
+                                    </div>
+                                ) : (
+                                    students.map((student) => (
+                                        <div key={student.id} className="bg-bg-tertiary p-4 rounded-lg border border-border flex flex-col gap-3">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent text-sm font-bold">
+                                                    {student.full_name?.substring(0, 2).toUpperCase() || 'ST'}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-white font-bold truncate">{student.full_name || 'N/A'}</p>
+                                                    <p className="text-sm text-text-secondary truncate">{student.email}</p>
+                                                </div>
+                                                <span className="text-xs px-2 py-1 rounded bg-white/5 text-text-muted uppercase">
+                                                    {student.role.toLowerCase()}
+                                                </span>
+                                            </div>
+                                            <button
+                                                className="w-full text-white hover:bg-white/10 px-3 py-2 bg-accent/20 rounded text-sm border border-accent/20 font-bold flex items-center justify-center gap-2 transition-colors"
+                                                onClick={() => handleOpenProfile(student)}
+                                            >
+                                                Vedi Scheda
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+
+                            {/* Desktop Table View */}
+                            <div className="hidden md:block overflow-x-auto">
                                 <table className="w-full text-left">
                                     <thead>
                                         <tr className="border-b border-border text-text-secondary text-sm">
@@ -506,28 +539,28 @@ export const AcademyPage: React.FC = () => {
                                 </button>
                             </div>
 
-                            <div className="flex gap-4 mt-6 overflow-x-auto pb-2">
+                            <div className="flex gap-2 mt-6 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
                                 <button
                                     onClick={() => setActiveTab('INFO')}
-                                    className={clsx("px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap", activeTab === 'INFO' ? "bg-accent text-white shadow-lg shadow-accent/20" : "text-text-secondary hover:text-white")}
+                                    className={clsx("px-3 py-2 md:px-4 rounded-lg font-medium transition-colors whitespace-nowrap text-sm md:text-base flex-shrink-0", activeTab === 'INFO' ? "bg-accent text-white shadow-lg shadow-accent/20" : "text-text-secondary hover:text-white")}
                                 >
                                     Info Gen.
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('MATERIALS')}
-                                    className={clsx("px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap", activeTab === 'MATERIALS' ? "bg-accent text-white shadow-lg shadow-accent/20" : "text-text-secondary hover:text-white")}
+                                    className={clsx("px-3 py-2 md:px-4 rounded-lg font-medium transition-colors whitespace-nowrap text-sm md:text-base flex-shrink-0", activeTab === 'MATERIALS' ? "bg-accent text-white shadow-lg shadow-accent/20" : "text-text-secondary hover:text-white")}
                                 >
                                     Materiale Didattico
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('STUDENTS')}
-                                    className={clsx("px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap", activeTab === 'STUDENTS' ? "bg-accent text-white shadow-lg shadow-accent/20" : "text-text-secondary hover:text-white")}
+                                    className={clsx("px-3 py-2 md:px-4 rounded-lg font-medium transition-colors whitespace-nowrap text-sm md:text-base flex-shrink-0", activeTab === 'STUDENTS' ? "bg-accent text-white shadow-lg shadow-accent/20" : "text-text-secondary hover:text-white")}
                                 >
                                     Corsisti
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('ATTENDANCE')}
-                                    className={clsx("px-4 py-2 rounded-lg font-medium transition-colors whitespace-nowrap", activeTab === 'ATTENDANCE' ? "bg-accent text-white shadow-lg shadow-accent/20" : "text-text-secondary hover:text-white")}
+                                    className={clsx("px-3 py-2 md:px-4 rounded-lg font-medium transition-colors whitespace-nowrap text-sm md:text-base flex-shrink-0", activeTab === 'ATTENDANCE' ? "bg-accent text-white shadow-lg shadow-accent/20" : "text-text-secondary hover:text-white")}
                                 >
                                     Registro
                                 </button>
@@ -851,45 +884,88 @@ export const AcademyPage: React.FC = () => {
                                                             </div>
 
                                                             <div className="bg-bg-secondary rounded-lg border border-border overflow-hidden">
-                                                                <table className="w-full text-left text-sm">
-                                                                    <thead className="bg-white/5 text-text-muted">
-                                                                        <tr>
-                                                                            <th className="p-3">Data</th>
-                                                                            <th className="p-3">Nota</th>
-                                                                            <th className="p-3 text-right">Importo</th>
-                                                                            <th className="p-3 text-right">Azioni</th>
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody className="divide-y divide-border/30">
-                                                                        {(studentEnrollment.deposits || []).length === 0 && (
+                                                                {/* Mobile Card View */}
+                                                                <div className="md:hidden">
+                                                                    {(studentEnrollment.deposits || []).length === 0 ? (
+                                                                        <div className="p-4 text-center text-text-muted italic text-sm">
+                                                                            Nessun acconto registrato.
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="divide-y divide-border/30">
+                                                                            {(studentEnrollment.deposits || []).map((dep) => (
+                                                                                <div key={dep.id} className="p-4 flex flex-col gap-2">
+                                                                                    <div className="flex justify-between items-start">
+                                                                                        <div>
+                                                                                            <p className="text-white font-medium">{new Date(dep.date).toLocaleDateString()}</p>
+                                                                                            <p className="text-sm text-text-secondary">{dep.note || '-'}</p>
+                                                                                        </div>
+                                                                                        <span className="text-white font-bold bg-green-500/10 px-2 py-1 rounded text-sm border border-green-500/20">
+                                                                                            € {dep.amount.toFixed(2)}
+                                                                                        </span>
+                                                                                    </div>
+                                                                                    <div className="flex justify-end pt-2">
+                                                                                        <button
+                                                                                            onClick={async () => {
+                                                                                                if (!confirm("Eliminare questo acconto?")) return;
+                                                                                                const updatedDeposits = studentEnrollment.deposits?.filter(d => d.id !== dep.id) || [];
+                                                                                                const updated = await api.academy.updateEnrollment(selectedCourse.id, selectedStudentId!, {
+                                                                                                    deposits: updatedDeposits
+                                                                                                });
+                                                                                                setStudentEnrollment(updated);
+                                                                                            }}
+                                                                                            className="text-red-400 hover:text-red-300 text-xs uppercase font-bold flex items-center gap-1 bg-red-400/10 px-3 py-1.5 rounded hover:bg-red-400/20 transition-colors"
+                                                                                        >
+                                                                                            <X size={14} /> Elimina
+                                                                                        </button>
+                                                                                    </div>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+
+                                                                {/* Desktop Table View */}
+                                                                <div className="hidden md:block overflow-x-auto">
+                                                                    <table className="w-full text-left text-sm">
+                                                                        <thead className="bg-white/5 text-text-muted">
                                                                             <tr>
-                                                                                <td colSpan={4} className="p-4 text-center text-text-muted italic">Nessun acconto registrato.</td>
+                                                                                <th className="p-3">Data</th>
+                                                                                <th className="p-3">Nota</th>
+                                                                                <th className="p-3 text-right">Importo</th>
+                                                                                <th className="p-3 text-right">Azioni</th>
                                                                             </tr>
-                                                                        )}
-                                                                        {(studentEnrollment.deposits || []).map((dep) => (
-                                                                            <tr key={dep.id} className="hover:bg-white/5">
-                                                                                <td className="p-3 text-white">{new Date(dep.date).toLocaleDateString()}</td>
-                                                                                <td className="p-3 text-text-secondary">{dep.note || '-'}</td>
-                                                                                <td className="p-3 text-right font-medium text-white">€ {dep.amount.toFixed(2)}</td>
-                                                                                <td className="p-3 text-right">
-                                                                                    <button
-                                                                                        onClick={async () => {
-                                                                                            if (!confirm("Eliminare questo acconto?")) return;
-                                                                                            const updatedDeposits = studentEnrollment.deposits?.filter(d => d.id !== dep.id) || [];
-                                                                                            const updated = await api.academy.updateEnrollment(selectedCourse.id, selectedStudentId!, {
-                                                                                                deposits: updatedDeposits
-                                                                                            });
-                                                                                            setStudentEnrollment(updated);
-                                                                                        }}
-                                                                                        className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-400/10"
-                                                                                    >
-                                                                                        <X size={14} />
-                                                                                    </button>
-                                                                                </td>
-                                                                            </tr>
-                                                                        ))}
-                                                                    </tbody>
-                                                                </table>
+                                                                        </thead>
+                                                                        <tbody className="divide-y divide-border/30">
+                                                                            {(studentEnrollment.deposits || []).length === 0 && (
+                                                                                <tr>
+                                                                                    <td colSpan={4} className="p-4 text-center text-text-muted italic">Nessun acconto registrato.</td>
+                                                                                </tr>
+                                                                            )}
+                                                                            {(studentEnrollment.deposits || []).map((dep) => (
+                                                                                <tr key={dep.id} className="hover:bg-white/5">
+                                                                                    <td className="p-3 text-white">{new Date(dep.date).toLocaleDateString()}</td>
+                                                                                    <td className="p-3 text-text-secondary">{dep.note || '-'}</td>
+                                                                                    <td className="p-3 text-right font-medium text-white">€ {dep.amount.toFixed(2)}</td>
+                                                                                    <td className="p-3 text-right">
+                                                                                        <button
+                                                                                            onClick={async () => {
+                                                                                                if (!confirm("Eliminare questo acconto?")) return;
+                                                                                                const updatedDeposits = studentEnrollment.deposits?.filter(d => d.id !== dep.id) || [];
+                                                                                                const updated = await api.academy.updateEnrollment(selectedCourse.id, selectedStudentId!, {
+                                                                                                    deposits: updatedDeposits
+                                                                                                });
+                                                                                                setStudentEnrollment(updated);
+                                                                                            }}
+                                                                                            className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-400/10"
+                                                                                        >
+                                                                                            <X size={14} />
+                                                                                        </button>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            ))}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -909,57 +985,94 @@ export const AcademyPage: React.FC = () => {
                                             </div>
 
                                             <div className="bg-bg-tertiary/20 rounded-lg border border-border overflow-hidden">
-                                                <table className="w-full text-left">
-                                                    <thead className="bg-bg-tertiary border-b border-border">
-                                                        <tr>
-                                                            <th className="p-4 font-medium text-text-muted">Studente</th>
-                                                            <th className="p-4 font-medium text-text-muted text-center">Azioni Rapide</th>
-                                                            <th className="p-4 font-medium text-text-muted text-right">Gestisci</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-border/50">
-                                                        {(selectedCourse.student_ids || []).length === 0 && (
-                                                            <tr>
-                                                                <td colSpan={3} className="p-6 text-center text-text-muted italic">
-                                                                    Nessun studente iscritto al corso.
-                                                                </td>
-                                                            </tr>
-                                                        )}
-                                                        {(selectedCourse.student_ids || []).map((sid) => (
-                                                            <tr key={sid} className="group hover:bg-white/5 transition-colors">
-                                                                <td className="p-4">
+                                                {/* Mobile Card View */}
+                                                <div className="md:hidden">
+                                                    {(selectedCourse.student_ids || []).length === 0 ? (
+                                                        <div className="p-6 text-center text-text-muted italic">
+                                                            Nessun studente iscritto al corso.
+                                                        </div>
+                                                    ) : (
+                                                        <div className="divide-y divide-border/30">
+                                                            {(selectedCourse.student_ids || []).map((sid) => (
+                                                                <div
+                                                                    key={sid}
+                                                                    className="p-4 flex items-center justify-between active:bg-white/5 transition-colors"
+                                                                    onClick={() => handleSelectStudentForAttendance(sid)}
+                                                                >
                                                                     <div className="flex items-center gap-3">
-                                                                        <div className="w-8 h-8 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-xs font-bold">
+                                                                        <div className="w-10 h-10 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-sm font-bold shrink-0">
                                                                             {allUsers.find(s => s.id === sid)?.full_name?.substring(0, 2).toUpperCase() || 'ST'}
                                                                         </div>
-                                                                        <div>
-                                                                            <p className="text-white font-medium">
+                                                                        <div className="overflow-hidden">
+                                                                            <p className="text-white font-medium truncate">
                                                                                 {allUsers.find(s => s.id === sid)?.full_name || 'Studente Sconosciuto'}
                                                                             </p>
-                                                                            <p className="text-xs text-text-muted">
+                                                                            <p className="text-xs text-text-muted truncate">
                                                                                 {allUsers.find(s => s.id === sid)?.email || sid}
                                                                             </p>
                                                                         </div>
                                                                     </div>
-                                                                </td>
-                                                                <td className="p-4">
-                                                                    <div className="flex items-center justify-center gap-2">
-                                                                        {/* Quick Mark buttons could go here if still desired, or removed to focus on detail view */}
-                                                                        <span className="text-xs text-text-muted">Clicca Dettagli per gestire</span>
-                                                                    </div>
-                                                                </td>
-                                                                <td className="p-4 text-right">
-                                                                    <button
-                                                                        onClick={() => handleSelectStudentForAttendance(sid)}
-                                                                        className="px-3 py-1.5 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/20 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ml-auto"
-                                                                    >
-                                                                        Dettagli <ChevronRight size={16} />
-                                                                    </button>
-                                                                </td>
+                                                                    <ChevronRight size={20} className="text-text-muted shrink-0 ml-2" />
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Desktop Table View */}
+                                                <div className="hidden md:block overflow-x-auto">
+                                                    <table className="w-full text-left">
+                                                        <thead className="bg-bg-tertiary border-b border-border">
+                                                            <tr>
+                                                                <th className="p-4 font-medium text-text-muted">Studente</th>
+                                                                <th className="p-4 font-medium text-text-muted text-center">Azioni Rapide</th>
+                                                                <th className="p-4 font-medium text-text-muted text-right">Gestisci</th>
                                                             </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-border/50">
+                                                            {(selectedCourse.student_ids || []).length === 0 && (
+                                                                <tr>
+                                                                    <td colSpan={3} className="p-6 text-center text-text-muted italic">
+                                                                        Nessun studente iscritto al corso.
+                                                                    </td>
+                                                                </tr>
+                                                            )}
+                                                            {(selectedCourse.student_ids || []).map((sid) => (
+                                                                <tr
+                                                                    key={sid}
+                                                                    className="group hover:bg-white/5 transition-colors cursor-pointer"
+                                                                    onClick={() => handleSelectStudentForAttendance(sid)}
+                                                                >
+                                                                    <td className="p-4">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div className="w-10 h-10 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-sm font-bold">
+                                                                                {allUsers.find(s => s.id === sid)?.full_name?.substring(0, 2).toUpperCase() || 'ST'}
+                                                                            </div>
+                                                                            <div>
+                                                                                <p className="text-white font-medium">
+                                                                                    {allUsers.find(s => s.id === sid)?.full_name || 'Studente Sconosciuto'}
+                                                                                </p>
+                                                                                <p className="text-xs text-text-muted">
+                                                                                    {allUsers.find(s => s.id === sid)?.email || sid}
+                                                                                </p>
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="p-4 text-center">
+                                                                        <div className="flex items-center justify-center gap-2">
+                                                                            <span className="text-xs bg-bg-secondary px-2 py-1 rounded border border-border text-text-muted group-hover:text-white transition-colors">
+                                                                                Gestisci Presenze
+                                                                            </span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="p-4 text-right">
+                                                                        <ChevronRight size={20} className="text-text-muted group-hover:text-white transition-colors ml-auto" />
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
                                             </div>
                                         </div>
                                     )}
@@ -1048,18 +1161,10 @@ export const AcademyPage: React.FC = () => {
                     </div>
                 )}
             </div>
-            {profileStudent && (
-                <StudentProfileModal
-                    student={profileStudent}
-                    courses={courses}
-                    enrollments={profileEnrollments}
-                    loading={loadingProfile}
-                    onClose={() => setProfileStudent(null)}
-                />
-            )}
-            {/* Add Student Modal */}
+
+
             {isAddStudentModalOpen && selectedCourse && (
-                <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
                     <div className="bg-bg-primary border border-border rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
                         <div className="flex items-center justify-between p-4 border-b border-border bg-bg-secondary">
                             <h3 className="text-lg font-bold text-white">Seleziona Studente</h3>
@@ -1069,8 +1174,8 @@ export const AcademyPage: React.FC = () => {
                         </div>
                         <div className="p-4 overflow-y-auto flex-1 space-y-2">
                             {allUsers
-                                .filter(u => !selectedCourse.student_ids.includes(u.id))
-                                .filter(u => (u.role || '').toLowerCase() === 'student') // Only listing students
+                                .filter(u => !(selectedCourse.student_ids || []).includes(u.id))
+                                .filter(u => (u.role || '').toLowerCase() === 'student')
                                 .map(user => (
                                     <button
                                         key={user.id}
@@ -1088,7 +1193,7 @@ export const AcademyPage: React.FC = () => {
                                     </button>
                                 ))
                             }
-                            {allUsers.filter(u => !selectedCourse.student_ids.includes(u.id)).length === 0 && (
+                            {allUsers.filter(u => !(selectedCourse.student_ids || []).includes(u.id)).length === 0 && (
                                 <p className="text-center text-text-muted py-4">
                                     Nessuno studente disponibile da aggiungere.
                                 </p>
@@ -1097,6 +1202,60 @@ export const AcademyPage: React.FC = () => {
                     </div>
                 </div>
             )}
-        </div>
+
+            {
+                profileStudent && (
+                    <StudentProfileModal
+                        student={profileStudent}
+                        courses={courses}
+                        enrollments={profileEnrollments}
+                        loading={loadingProfile}
+                        onClose={() => setProfileStudent(null)}
+                    />
+                )
+            }
+            {/* Add Student Modal */}
+            {
+                isAddStudentModalOpen && selectedCourse && (
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                        <div className="bg-bg-primary border border-border rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
+                            <div className="flex items-center justify-between p-4 border-b border-border bg-bg-secondary">
+                                <h3 className="text-lg font-bold text-white">Seleziona Studente</h3>
+                                <button onClick={() => setIsAddStudentModalOpen(false)} className="text-text-muted hover:text-white">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <div className="p-4 overflow-y-auto flex-1 space-y-2">
+                                {allUsers
+                                    .filter(u => !selectedCourse.student_ids.includes(u.id))
+                                    .filter(u => (u.role || '').toLowerCase() === 'student') // Only listing students
+                                    .map(user => (
+                                        <button
+                                            key={user.id}
+                                            onClick={() => handleAddStudentFromList(user)}
+                                            className="w-full flex items-center gap-3 p-3 bg-bg-tertiary hover:bg-bg-secondary border border-border rounded-lg transition-colors text-left"
+                                        >
+                                            <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent font-bold shrink-0">
+                                                {user.full_name?.substring(0, 2).toUpperCase() || 'ST'}
+                                            </div>
+                                            <div className="overflow-hidden">
+                                                <p className="text-white font-medium truncate">{user.full_name}</p>
+                                                <p className="text-sm text-text-muted truncate">{user.email}</p>
+                                            </div>
+                                            <Plus size={18} className="ml-auto text-accent" />
+                                        </button>
+                                    ))
+                                }
+                                {allUsers.filter(u => !selectedCourse.student_ids.includes(u.id)).length === 0 && (
+                                    <p className="text-center text-text-muted py-4">
+                                        Nessuno studente disponibile da aggiungere.
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 };

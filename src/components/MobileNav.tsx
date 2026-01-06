@@ -89,22 +89,25 @@ export const MobileNav: React.FC = () => {
         <>
             {/* Mobile Top Bar */}
             <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-bg-secondary border-b border-border z-30 flex items-center justify-center px-4 shadow-sm">
-                <div className="flex items-center justify-center w-full">
+                <div className="flex items-center justify-center gap-3 w-full">
                     {studio?.logo_url ? (
                         <img
                             src={studio.logo_url}
                             alt={studio.name}
                             onClick={() => window.location.href = '/'}
-                            className="h-12 w-12 rounded-full object-cover border-2 border-accent shadow-sm cursor-pointer"
+                            className="h-10 w-10 rounded-full object-cover border-2 border-accent shadow-sm cursor-pointer"
                         />
                     ) : (
                         <div
                             onClick={() => window.location.href = '/'}
-                            className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-white font-bold text-sm shadow-lg cursor-pointer border-2 border-bg-primary"
+                            className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white font-bold text-xs shadow-lg cursor-pointer border-2 border-bg-primary"
                         >
                             {studio?.name?.substring(0, 2).toUpperCase() || 'IF'}
                         </div>
                     )}
+                    <span className="font-bold text-lg text-text-primary truncate max-w-[200px]">
+                        {studio?.name || 'InkFlow'}
+                    </span>
                 </div>
             </div>
 

@@ -74,6 +74,7 @@ export const Sidebar = () => {
     const [studio, setStudio] = React.useState<Studio | null>(null);
 
     const [isShareOpen, setIsShareOpen] = React.useState(false);
+    const [unreadCount, setUnreadCount] = React.useState(0);
 
     React.useEffect(() => {
         const loadStudio = async () => {
@@ -81,11 +82,25 @@ export const Sidebar = () => {
                 try {
                     const s = await api.settings.getStudio(user.studio_id);
                     setStudio(s);
+
+                    // Fetch communications for badge
+                    const msgs = await api.communications.list(user.studio_id);
+                    const lastVisit = localStorage.getItem('last_visit_communications');
+                    const count = msgs.filter(m => !lastVisit || new Date(m.created_at) > new Date(lastVisit)).length;
+                    setUnreadCount(count);
                 } catch (e) { console.error(e); }
             }
         };
         loadStudio();
-    }, [user?.studio_id]);
+    }, [user?.studio_id, location.pathname]); // Reload on nav change to update badge
+
+    // Update read status when visiting communications
+    React.useEffect(() => {
+        if (location.pathname === '/communications') {
+            localStorage.setItem('last_visit_communications', new Date().toISOString());
+            setUnreadCount(0);
+        }
+    }, [location.pathname]);
 
     if (!user) return null;
     // If hidden by global store (e.g. fullscreen calendar), return null
@@ -141,7 +156,7 @@ export const Sidebar = () => {
                                 const isSettingsRoot = item.path === '/settings' && location.search !== '';
 
                                 return clsx(
-                                    'flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group',
+                                    'flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group relative',
                                     (isActive && isQueryMatch && !isSettingsRoot)
                                         ? 'bg-accent/10 text-accent font-medium'
                                         : 'text-text-secondary hover:bg-white/5 hover:text-text-primary'
@@ -150,6 +165,11 @@ export const Sidebar = () => {
                         >
                             <item.icon size={20} />
                             <span>{item.label}</span>
+                            {item.label === 'Bacheca' && unreadCount > 0 && (
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 bg-red-500 rounded-full border-2 border-bg-secondary flex items-center justify-center text-xs font-bold text-white leading-none">
+                                    {unreadCount > 9 ? '9+' : unreadCount}
+                                </span>
+                            )}
                         </NavLink>
                     ))}
                 </nav>
