@@ -9,6 +9,6 @@ WITH CHECK (
     SELECT 1 FROM studio_memberships
     WHERE user_id = auth.uid()
     AND studio_id = studio_invitations.studio_id
-    AND lower(role) IN ('owner', 'manager', 'artist', 'studio_admin')
+    AND lower(role::text) IN ('owner', 'manager', 'artist', 'studio_admin')
   )
 );
