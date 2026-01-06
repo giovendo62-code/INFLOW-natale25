@@ -32,3 +32,6 @@ backups/
 supabase/.env
 .env
 .env.*
+
+# ignore backups
+backups/
