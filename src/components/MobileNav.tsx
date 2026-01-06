@@ -66,13 +66,16 @@ export const MobileNav: React.FC = () => {
     }, [isOpen]);
 
     // Role Logic & Sorting
-    const filteredItems = NAV_ITEMS.filter(item => item.allowedRoles.includes(user.role));
+    const normalizedRole = user.role.toLowerCase();
+
+    const filteredItems = NAV_ITEMS.filter(item =>
+        item.allowedRoles.some(r => r.toLowerCase() === normalizedRole)
+    );
 
     const sortedItems = [...filteredItems]
         .filter(item => !['Calendario', 'Lista Attesa', 'Clienti', 'Bacheca'].includes(item.label))
         .sort((a, b) => {
             // "Clienti" and "Bacheca" at the bottom for Owner/Manager/Artist
-            // Since they are removed, this sort might be redundant but harmless // keeping for safety if logic changes
             const bottomItems = ['Clienti', 'Bacheca'];
             const aIsBottom = bottomItems.includes(a.label);
             const bIsBottom = bottomItems.includes(b.label);
@@ -127,7 +130,7 @@ export const MobileNav: React.FC = () => {
                     </NavLink>
 
                     {/* Calendar - Owner + Management + Artists */}
-                    {['owner', 'STUDIO_ADMIN', 'MANAGER', 'ARTIST'].includes(user.role) && (
+                    {['owner', 'studio_admin', 'manager', 'artist'].includes(normalizedRole) && (
                         <NavLink
                             to="/calendar"
                             onClick={closeMenu}
@@ -142,7 +145,7 @@ export const MobileNav: React.FC = () => {
                     )}
 
                     {/* Waitlist for Owner + Management */}
-                    {['owner', 'STUDIO_ADMIN', 'MANAGER'].includes(user.role) && (
+                    {['owner', 'studio_admin', 'manager'].includes(normalizedRole) && (
                         <NavLink
                             to="/waitlist"
                             onClick={closeMenu}
@@ -157,7 +160,7 @@ export const MobileNav: React.FC = () => {
                     )}
 
                     {/* Clienti & Bacheca for Owner + Management + Artists */}
-                    {['owner', 'STUDIO_ADMIN', 'MANAGER', 'ARTIST'].includes(user.role) && (
+                    {['owner', 'studio_admin', 'manager', 'artist'].includes(normalizedRole) && (
                         <>
                             <NavLink
                                 to="/clients"
