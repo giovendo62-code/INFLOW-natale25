@@ -103,13 +103,21 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
         }
     }, [selectedAppointment, selectedDate, isOpen, user, artists, initialClientId]);
 
-    const handleUpload = (file: File) => {
-        // Mock upload - in real app, upload to storage return URL
-        const mockUrl = URL.createObjectURL(file);
-        setFormData(prev => ({
-            ...prev,
-            images: [...(prev.images || []), mockUrl]
-        }));
+    const handleUpload = async (file: File) => {
+        try {
+            // Upload to Supabase Storage
+            // Use appointment ID if available, otherwise 'temp' or timestamp folder
+            const path = `appointments/${Date.now()}_${file.name}`;
+            const publicUrl = await api.storage.upload('attachments', path, file);
+
+            setFormData(prev => ({
+                ...prev,
+                images: [...(prev.images || []), publicUrl]
+            }));
+        } catch (error) {
+            console.error('Upload failed:', error);
+            alert('Errore durante il caricamento dell\'immagine. Riprova.');
+        }
     };
 
     const removeImage = (index: number) => {

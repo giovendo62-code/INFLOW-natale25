@@ -15,7 +15,7 @@ WITH CHECK (
     SELECT 1 FROM studio_memberships
     WHERE user_id = auth.uid()
     AND studio_id = studio_invitations.studio_id
-    AND role IN ('owner', 'manager', 'STUDIO_ADMIN', 'artist') -- Added artist so they can invite students if needed, or remove if restricted
+    AND role IN ('owner', 'manager', 'artist') -- Added artist so they can invite students if needed, or remove if restricted
   )
 );
 

@@ -13,6 +13,7 @@ create table if not exists recurring_expenses (
 alter table recurring_expenses enable row level security;
 
 -- Policies
+drop policy if exists "Owners and managers can view recurring expenses" on recurring_expenses;
 create policy "Owners and managers can view recurring expenses"
   on recurring_expenses for select
   using (
@@ -23,6 +24,7 @@ create policy "Owners and managers can view recurring expenses"
     )
   );
 
+drop policy if exists "Owners and managers can insert recurring expenses" on recurring_expenses;
 create policy "Owners and managers can insert recurring expenses"
   on recurring_expenses for insert
   with check (
@@ -33,6 +35,7 @@ create policy "Owners and managers can insert recurring expenses"
     )
   );
 
+drop policy if exists "Owners and managers can update recurring expenses" on recurring_expenses;
 create policy "Owners and managers can update recurring expenses"
   on recurring_expenses for update
   using (
@@ -43,6 +46,7 @@ create policy "Owners and managers can update recurring expenses"
     )
   );
 
+drop policy if exists "Owners and managers can delete recurring expenses" on recurring_expenses;
 create policy "Owners and managers can delete recurring expenses"
   on recurring_expenses for delete
   using (
