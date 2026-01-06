@@ -147,11 +147,11 @@ export const CommunicationsPage: React.FC = () => {
                         )}>
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-inner">
-                                    {comm.author_name.charAt(0)}
+                                    {(comm.author_name || '?').charAt(0)}
                                 </div>
                                 <div>
                                     <h4 className="font-bold text-white flex items-center gap-2">
-                                        {comm.author_name}
+                                        {comm.author_name || 'Utente Sconosciuto'}
                                         {comm.is_important && (
                                             <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-full flex items-center gap-1 font-bold uppercase tracking-wider">
                                                 <ShieldAlert size={10} /> Importante
@@ -186,7 +186,7 @@ export const CommunicationsPage: React.FC = () => {
                                     {comm.replies.map(reply => (
                                         <div key={reply.id} className="bg-bg-tertiary p-3 rounded-lg rounded-tl-none relative group">
                                             <div className="flex justify-between items-start mb-1">
-                                                <span className="text-sm font-bold text-white">{reply.author_name}</span>
+                                                <span className="text-sm font-bold text-white">{reply.author_name || 'Utente Sconosciuto'}</span>
                                                 <span className="text-[10px] text-text-muted">
                                                     {format(new Date(reply.created_at), "d MMM HH:mm", { locale: it })}
                                                 </span>
