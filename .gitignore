@@ -27,3 +27,8 @@ backups/
 *.njsproj
 *.sln
 *.sw?
+
+# secrets
+supabase/.env
+.env
+.env.*
