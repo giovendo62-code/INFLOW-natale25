@@ -155,12 +155,45 @@ export const GoogleCalendarDrawer: React.FC<GoogleCalendarDrawerProps> = ({ isOp
                                         <p className="text-xs text-text-muted">{user?.integrations?.google_calendar?.email || 'Email non disponibile'}</p>
                                     </div>
                                 </div>
+                                <div className="flex flex-col items-end gap-2">
+                                    <button
+                                        onClick={handleDisconnect}
+                                        type="button"
+                                        className="text-xs text-red-400 hover:text-red-300 hover:underline"
+                                    >
+                                        Disconnetti
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Manual Sync */}
+                            <div className="bg-bg-tertiary rounded-lg p-4 flex items-center justify-between">
+                                <div>
+                                    <p className="text-white font-medium flex items-center gap-2">
+                                        <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                                        Sincronizzazione Manuale
+                                    </p>
+                                    <p className="text-xs text-text-muted">Importa eventi da Google Calendar ora</p>
+                                </div>
                                 <button
-                                    onClick={handleDisconnect}
+                                    onClick={async () => {
+                                        if (loading) return;
+                                        setLoading(true);
+                                        try {
+                                            await api.googleCalendar.syncEvents(user!.id);
+                                            alert("Sincronizzazione completata!");
+                                        } catch (e) {
+                                            console.error(e);
+                                            alert("Errore durante la sincronizzazione");
+                                        } finally {
+                                            setLoading(false);
+                                        }
+                                    }}
+                                    disabled={loading}
                                     type="button"
-                                    className="text-xs text-red-400 hover:text-red-300 hover:underline"
+                                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-colors"
                                 >
-                                    Disconnetti
+                                    Sincronizza Ora
                                 </button>
                             </div>
 
