@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MessageCircle, Star, AlertTriangle } from 'lucide-react';
 import { api } from '../services/api';
 
