@@ -77,7 +77,7 @@ export const AcademyPage: React.FC = () => {
         setLoading(true);
         try {
             const [coursesData, teamData] = await Promise.all([
-                api.academy.listCourses(),
+                api.academy.listCourses(user.studio_id),
                 api.settings.listTeamMembers(user.studio_id)
             ]);
             setCourses(coursesData);

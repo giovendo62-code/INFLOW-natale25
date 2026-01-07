@@ -38,7 +38,8 @@ export const ClientsList: React.FC = () => {
     const loadClients = async () => {
         setLoading(true);
         try {
-            const data = await api.clients.list(); // Load all, filter locally 
+            // Pass user.studio_id to filter clients by studio
+            const data = await api.clients.list(undefined, user?.studio_id);
             setClients(data);
         } finally {
             setLoading(false);

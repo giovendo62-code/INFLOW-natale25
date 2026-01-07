@@ -384,10 +384,13 @@ export class SupabaseRepository implements IRepository {
     };
 
     clients = {
-        list: async (search?: string): Promise<Client[]> => {
+        list: async (search?: string, studioId?: string): Promise<Client[]> => {
             let query = supabase.from('clients').select('*');
             if (search) {
                 query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
+            }
+            if (studioId) {
+                query = query.eq('studio_id', studioId);
             }
             query = query.order('full_name', { ascending: true });
             const { data, error } = await query;
@@ -1017,17 +1020,20 @@ export class SupabaseRepository implements IRepository {
             if (error) throw error;
             return data;
         },
-        listCourses: async (): Promise<Course[]> => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) return [];
-
-            // Get studio_id from user if possible, or filter by user access
-            const { data: profile } = await supabase.from('users').select('studio_id').eq('id', user.id).single();
-            // Fallback studio_id from profile
+        listCourses: async (studioId?: string): Promise<Course[]> => {
+            // Use passed studioId or fallback to fetching (though caller should usually provide it now)
+            let targetStudioId = studioId;
+            if (!targetStudioId) {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    const { data: profile } = await supabase.from('users').select('studio_id').eq('id', user.id).single();
+                    targetStudioId = profile?.studio_id;
+                }
+            }
 
             let query = supabase.from('academy_courses').select('*, academy_enrollments(student_id)');
-            if (profile?.studio_id) {
-                query = query.eq('studio_id', profile.studio_id);
+            if (targetStudioId) {
+                query = query.eq('studio_id', targetStudioId);
             }
 
             const { data, error } = await query;

@@ -492,7 +492,7 @@ export class MockRepository implements IRepository {
                 date: new Date().toISOString()
             };
         },
-        listCourses: async (): Promise<Course[]> => {
+        listCourses: async (studioId?: string): Promise<Course[]> => {
             await new Promise(resolve => setTimeout(resolve, 400));
             return MOCK_COURSES;
         },

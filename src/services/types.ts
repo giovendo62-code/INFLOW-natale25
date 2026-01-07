@@ -224,7 +224,7 @@ export interface IRepository {
     delete(id: string): Promise<void>;
   };
   clients: {
-    list(search?: string): Promise<Client[]>;
+    list(search?: string, studioId?: string): Promise<Client[]>;
     getById(id: string): Promise<Client | null>;
     create(data: Omit<Client, 'id'>): Promise<Client>;
     update(id: string, data: Partial<Client>): Promise<Client>;
@@ -244,7 +244,7 @@ export interface IRepository {
   academy: {
     listMaterials(): Promise<CourseMaterial[]>;
     recordAttendance(studentId: string): Promise<StudentAttendance>;
-    listCourses(): Promise<Course[]>;
+    listCourses(studioId?: string): Promise<Course[]>;
     createCourse(data: Omit<Course, 'id'>): Promise<Course>;
     updateCourse(id: string, data: Partial<Course>): Promise<Course>;
     deleteCourse(id: string): Promise<void>;
