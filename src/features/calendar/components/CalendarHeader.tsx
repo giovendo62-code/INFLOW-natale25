@@ -1,7 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { it } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, Calendar as CalIcon, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalIcon, Users, ArrowLeft } from 'lucide-react';
 import type { CalendarView } from '../hooks/useCalendar';
 import type { User } from '../../../services/types';
 import clsx from 'clsx';
@@ -42,6 +42,24 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 
                 {/* Left: Title & Nav */}
                 <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
+                    {(view === 'day' || view === 'week') && (
+                        <button
+                            onClick={() => onViewChange('month')}
+                            className="p-1.5 hover:bg-white/10 rounded-lg text-text-muted hover:text-white transition-colors"
+                            title="Torna al Mese"
+                        >
+                            <ArrowLeft size={20} />
+                        </button>
+                    )}
+                    {(view === 'month') && (
+                        <button
+                            onClick={() => onViewChange('year')}
+                            className="p-1.5 hover:bg-white/10 rounded-lg text-text-muted hover:text-white transition-colors"
+                            title="Torna all'Anno"
+                        >
+                            <ArrowLeft size={20} />
+                        </button>
+                    )}
                     <h2 className="text-lg md:text-2xl font-bold text-white capitalize truncate whitespace-nowrap">
                         {format(currentDate, 'MMMM yyyy', { locale: it })}
                     </h2>
