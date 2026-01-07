@@ -42,7 +42,7 @@ export const AcademyPage: React.FC = () => {
 
     // Quick Attendance State
     const [courseEnrollments, setCourseEnrollments] = useState<Record<string, CourseEnrollment>>({}); // Map studentId -> Enrollment
-    const [loadingCourseEnrollments, setLoadingCourseEnrollments] = useState(false);
+    const [_loadingCourseEnrollments, setLoadingCourseEnrollments] = useState(false);
 
     useEffect(() => {
         loadData();
