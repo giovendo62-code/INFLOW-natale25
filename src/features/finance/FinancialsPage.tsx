@@ -82,6 +82,7 @@ export const FinancialsPage: React.FC = () => {
                 setContracts(contractsMap);
             } else if (userRole === 'artist') {
                 // Fetch own contract
+                const contract = await api.artists.getContract(user.id);
                 if (contract) contractsMap[user.id] = contract;
                 setContracts(contractsMap);
             }
