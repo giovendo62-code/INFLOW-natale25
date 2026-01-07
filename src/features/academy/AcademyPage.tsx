@@ -1065,28 +1065,48 @@ export const AcademyPage: React.FC = () => {
                                                         </div>
                                                     ) : (
                                                         <div className="divide-y divide-border/30">
-                                                            {(selectedCourse.student_ids || []).map((sid) => (
-                                                                <div
-                                                                    key={sid}
-                                                                    className="p-4 flex items-center justify-between active:bg-white/5 transition-colors"
-                                                                    onClick={() => handleSelectStudentForAttendance(sid)}
-                                                                >
-                                                                    <div className="flex items-center gap-3">
-                                                                        <div className="w-10 h-10 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-sm font-bold shrink-0">
-                                                                            {allUsers.find(s => s.id === sid)?.full_name?.substring(0, 2).toUpperCase() || 'ST'}
+                                                            {(selectedCourse.student_ids || []).map((sid) => {
+                                                                const enrollment = courseEnrollments[sid];
+                                                                const isFull = enrollment && enrollment.attended_days >= enrollment.allowed_days;
+
+                                                                return (
+                                                                    <div
+                                                                        key={sid}
+                                                                        className="p-4 flex items-center justify-between active:bg-white/5 transition-colors gap-3"
+                                                                        onClick={() => handleSelectStudentForAttendance(sid)}
+                                                                    >
+                                                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                                            <div className="w-10 h-10 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center text-sm font-bold shrink-0">
+                                                                                {allUsers.find(s => s.id === sid)?.full_name?.substring(0, 2).toUpperCase() || 'ST'}
+                                                                            </div>
+                                                                            <div className="overflow-hidden">
+                                                                                <p className="text-white font-medium truncate">
+                                                                                    {allUsers.find(s => s.id === sid)?.full_name || 'Studente Sconosciuto'}
+                                                                                </p>
+                                                                                <p className="text-xs text-text-muted truncate">
+                                                                                    {enrollment ? `${enrollment.attended_days} / ${enrollment.allowed_days} presenze` : 'Caricamento...'}
+                                                                                </p>
+                                                                            </div>
                                                                         </div>
-                                                                        <div className="overflow-hidden">
-                                                                            <p className="text-white font-medium truncate">
-                                                                                {allUsers.find(s => s.id === sid)?.full_name || 'Studente Sconosciuto'}
-                                                                            </p>
-                                                                            <p className="text-xs text-text-muted truncate">
-                                                                                {allUsers.find(s => s.id === sid)?.email || sid}
-                                                                            </p>
-                                                                        </div>
+
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleQuickAttendance(sid);
+                                                                            }}
+                                                                            disabled={!enrollment || isFull}
+                                                                            className={clsx(
+                                                                                "w-10 h-10 rounded-lg flex items-center justify-center transition-all shadow-lg shrink-0",
+                                                                                isFull
+                                                                                    ? "bg-bg-primary text-text-muted cursor-not-allowed border border-border"
+                                                                                    : "bg-green-500 text-white hover:bg-green-600 shadow-green-500/20"
+                                                                            )}
+                                                                        >
+                                                                            {isFull ? <Check size={20} /> : <Plus size={24} />}
+                                                                        </button>
                                                                     </div>
-                                                                    <ChevronRight size={20} className="text-text-muted shrink-0 ml-2" />
-                                                                </div>
-                                                            ))}
+                                                                );
+                                                            })}
                                                         </div>
                                                     )}
                                                 </div>
