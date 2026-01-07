@@ -1082,7 +1082,7 @@ export const AcademyPage: React.FC = () => {
                     </div>
                 ) : (
                     /* Create Form */
-                    <div className="max-w-2xl mx-auto bg-bg-secondary p-8 rounded-xl border border-border">
+                    <div className="max-w-2xl mx-auto bg-bg-secondary p-8 rounded-xl border border-border mb-24">
                         <h2 className="text-xl font-bold text-white mb-6">Crea Nuovo Corso</h2>
                         <form onSubmit={handleCreateCourse} className="space-y-6">
                             <div>
