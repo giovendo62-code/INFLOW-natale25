@@ -20,17 +20,16 @@ export interface User {
       two_way_sync?: boolean;
     };
   };
-};
-// Personal & Billing
-fiscal_code ?: string;
-address ?: string;
-city ?: string;
-zip_code ?: string;
-country ?: string;
-vat_number ?: string;
-billing_name ?: string;
-sdi_code ?: string;
-pec ?: string;
+  // Personal & Billing
+  fiscal_code?: string;
+  address?: string;
+  city?: string;
+  zip_code?: string;
+  country?: string;
+  vat_number?: string;
+  billing_name?: string;
+  sdi_code?: string;
+  pec?: string;
 }
 
 export interface AuthSession {
