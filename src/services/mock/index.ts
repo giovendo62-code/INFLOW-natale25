@@ -366,14 +366,20 @@ export class MockRepository implements IRepository {
             await new Promise(resolve => setTimeout(resolve, 500));
 
             let apts = MOCK_APPOINTMENTS.filter(a => {
-                const aptTime = new Date(a.start_time).getTime();
-                return aptTime >= start.getTime() && aptTime <= end.getTime();
+                const apptStart = new Date(a.start_time);
+                let matches = apptStart >= start && apptStart <= end;
+
+                if (artistId) {
+                    matches = matches && a.artist_id === artistId;
+                }
+
+                if (studioId) {
+                    matches = matches && a.studio_id === studioId;
+                }
+
+                return matches;
             });
 
-            // Filter by artist if provided (RBAC)
-            if (artistId) {
-                apts = apts.filter(a => a.artist_id === artistId);
-            }
             return apts;
         },
         create: async (data: Omit<Appointment, 'id'>): Promise<Appointment> => {
