@@ -30,7 +30,9 @@ export const ClientsList: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const studioId = user?.studio_id;
-    const registrationLink = `${window.location.origin}/public/register/${studioId}`;
+    // Use configured site URL (production) or fallback to current origin (dev/preview)
+    const baseUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
+    const registrationLink = `${baseUrl}/public/register/${studioId}`;
 
     useEffect(() => {
         loadClients();
