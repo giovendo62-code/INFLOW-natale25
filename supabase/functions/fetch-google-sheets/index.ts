@@ -105,7 +105,7 @@ serve(async (req) => {
             const sheets = data.sheets?.map((s: any) => s.properties.title) || [];
             return new Response(JSON.stringify(sheets), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
         } else if (action === 'export_data') {
-            const { values } = await req.json();
+            const { values } = reqBody;
             if (!spreadsheetId || !sheetName || !values) return new Response(JSON.stringify({ error: 'Missing spreadsheetId, sheetName or values' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
             // 1. Clear Sheet First (Optional but strict sync) or just overwrite. Overwrite A1 is easiest but might leave leftover rows if new data is shorter.
