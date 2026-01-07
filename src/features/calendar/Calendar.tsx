@@ -48,10 +48,8 @@ export const Calendar: React.FC = () => {
         const fetchArtists = async () => {
             if (user?.studio_id) {
                 const members = await api.settings.listTeamMembers(user.studio_id);
-                // Show all staff members who might have appointments (Artists, Owners, Managers)
-                setArtists(members.filter(m =>
-                    ['artist', 'owner', 'manager', 'studio_admin'].includes((m.role || '').toLowerCase())
-                ));
+                // Show only Artists in the filter and mapping
+                setArtists(members.filter(m => (m.role || '').toLowerCase() === 'artist'));
             }
         };
         fetchArtists();
