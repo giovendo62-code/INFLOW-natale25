@@ -223,9 +223,9 @@ export const ClientsList: React.FC = () => {
                 )}
             </div>
 
-            {/* Desktop Table */}
-            <div className="hidden md:block bg-bg-secondary rounded-lg border border-border overflow-hidden flex-1">
-                <table className="w-full text-left border-collapse">
+            {/* Desktop Table (lg+) */}
+            <div className="hidden lg:block bg-bg-secondary rounded-lg border border-border overflow-x-auto flex-1">
+                <table className="w-full text-left border-collapse min-w-[800px]">
                     <thead className="bg-bg-tertiary">
                         <tr className="text-sm text-text-muted font-medium border-b border-border">
                             <th className="px-6 py-3">Nome</th>
@@ -303,8 +303,8 @@ export const ClientsList: React.FC = () => {
                 </table>
             </div>
 
-            {/* Mobile Card View */}
-            <div className="md:hidden space-y-4">
+            {/* Mobile/Tablet Card View (< lg) */}
+            <div className="lg:hidden space-y-4">
                 {loading ? (
                     <div className="p-8 text-center text-text-muted">Caricamento...</div>
                 ) : filteredClients.length === 0 ? (
