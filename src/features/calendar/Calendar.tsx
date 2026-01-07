@@ -55,9 +55,8 @@ export const Calendar: React.FC = () => {
     }, [user?.studio_id]);
 
     const handleDateClick = (date: Date) => {
-        setSelectedDate(date);
-        setSelectedAppointment(null);
-        setIsDrawerOpen(true);
+        goToDate(date);
+        setView('day');
     };
 
     const handleAppointmentClick = (apt: Appointment) => {
