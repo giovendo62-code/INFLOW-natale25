@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Mail, Phone, Calendar, Image, FileText, Activity, X, Save, Tag, MapPin, CreditCard } from 'lucide-react';
 import { api } from '../../services/api';
+import { supabase } from '../../lib/supabase';
 import type { Client } from '../../services/types';
 import clsx from 'clsx';
 
