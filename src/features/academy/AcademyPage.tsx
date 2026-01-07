@@ -78,7 +78,8 @@ export const AcademyPage: React.FC = () => {
                 duration: newCourse.duration,
                 price: newCourse.price,
                 materials: [],
-                student_ids: []
+                student_ids: [],
+                studio_id: user?.studio_id
             });
 
             await loadData();

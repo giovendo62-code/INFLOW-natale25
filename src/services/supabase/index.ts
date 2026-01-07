@@ -1032,7 +1032,7 @@ export class SupabaseRepository implements IRepository {
                 .from('academy_courses')
                 .insert({
                     ...courseData,
-                    studio_id: profile?.studio_id
+                    studio_id: data.studio_id || profile?.studio_id
                 })
                 .select()
                 .single();

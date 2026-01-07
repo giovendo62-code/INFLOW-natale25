@@ -102,6 +102,7 @@ export interface CourseMaterial {
 
 export interface Course {
   id: string;
+  studio_id?: string; // Added for creation
   title: string;
   description: string;
   duration: string;
