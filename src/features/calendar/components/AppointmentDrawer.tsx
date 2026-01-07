@@ -35,6 +35,7 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
 
     // Delete Confirmation State
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Form State
     const [formData, setFormData] = useState<Partial<Appointment>>({
@@ -456,11 +457,14 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
                             Annulla
                         </button>
                         <button
+                            disabled={isSubmitting}
                             onClick={() => {
                                 if (!formData.start_time || !formData.end_time) {
                                     alert('Data e Orario sono obbligatori');
                                     return;
                                 }
+
+                                setIsSubmitting(true);
 
                                 // Sanitize data: remove joined objects that are not columns in appointments table
                                 const { client, artist, ...dataToSave } = formData as any;
@@ -470,12 +474,15 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
                                     dataToSave.studio_id = user.studio_id;
                                 }
 
-                                onSave(dataToSave);
+                                onSave(dataToSave).finally(() => setIsSubmitting(false));
                             }}
-                            className="bg-accent hover:bg-accent-hover text-white px-6 py-3 rounded-xl font-medium transition-all shadow-lg shadow-accent/20 flex items-center gap-2"
+                            className={clsx(
+                                "bg-accent text-white px-6 py-3 rounded-xl font-medium transition-all shadow-lg shadow-accent/20 flex items-center gap-2",
+                                isSubmitting ? "opacity-50 cursor-not-allowed" : "hover:bg-accent-hover"
+                            )}
                         >
-                            <Save size={20} />
-                            <span>Salva</span>
+                            {isSubmitting ? <Clock size={20} className="animate-spin" /> : <Save size={20} />}
+                            <span>{isSubmitting ? 'Salvataggio...' : 'Salva'}</span>
                         </button>
                     </div>
                 </div>
