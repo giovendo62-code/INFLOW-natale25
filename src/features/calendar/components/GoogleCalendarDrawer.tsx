@@ -180,8 +180,13 @@ export const GoogleCalendarDrawer: React.FC<GoogleCalendarDrawerProps> = ({ isOp
                                         if (loading) return;
                                         setLoading(true);
                                         try {
-                                            await api.googleCalendar.syncEvents(user!.id);
-                                            alert("Sincronizzazione completata!");
+                                            const res = await api.googleCalendar.syncEvents(user!.id);
+                                            console.log("Sync Logs:", res.logs);
+                                            if (res.logs && res.logs.length > 0) {
+                                                alert("Sincronizzazione completata!\n\nDettagli:\n" + res.logs.join('\n'));
+                                            } else {
+                                                alert("Sincronizzazione completata! " + res.synced_events_count + " eventi elaborati.");
+                                            }
                                         } catch (e) {
                                             console.error(e);
                                             alert("Errore durante la sincronizzazione");

@@ -385,66 +385,68 @@ export const WaitlistForm: React.FC = () => {
                     </div>
 
                     {/* Tattoo Info */}
-                    <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-text-primary border-b border-border pb-2">Idea Tatuaggio</h3>
+                    {formData.interest_type === 'TATTOO' && (
+                        <div className="space-y-4">
+                            <h3 className="text-lg font-semibold text-text-primary border-b border-border pb-2">Idea Tatuaggio</h3>
 
-                        <div>
-                            <label className="block text-sm font-medium text-text-muted mb-2">Stile Preferito</label>
-                            <div className="flex flex-wrap gap-2">
-                                {STYLES.map(style => (
-                                    <button
-                                        key={style}
-                                        type="button"
-                                        onClick={() => toggleStyle(style)}
-                                        className={clsx(
-                                            "px-3 py-1.5 rounded-full text-sm font-medium transition-colors border",
-                                            formData.styles.includes(style)
-                                                ? "bg-accent/20 border-accent text-accent"
-                                                : "bg-bg-tertiary border-border text-text-muted hover:border-text-muted"
-                                        )}
-                                    >
-                                        {style}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-text-muted mb-1">Descrizione</label>
-                            <textarea
-                                value={formData.description}
-                                onChange={e => setFormData({ ...formData, description: e.target.value })}
-                                className="w-full bg-bg-tertiary border border-border rounded-lg px-4 py-3 text-text-primary focus:border-accent focus:outline-none min-h-[100px]"
-                                placeholder="Descrivi brevemente la tua idea..."
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-sm font-medium text-text-muted mb-2">Immagini di Riferimento</label>
-                            <DragDropUpload
-                                onUpload={handleImageUpload}
-                                label="Carica immagini"
-                                sublabel="Clicca o trascina per aggiungere reference"
-                                className="mb-4"
-                            />
-                            {formData.images.length > 0 && (
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                    {formData.images.map((img, idx) => (
-                                        <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-border group">
-                                            <img src={img} alt={`Reference ${idx + 1}`} className="w-full h-full object-cover" />
-                                            <button
-                                                type="button"
-                                                onClick={() => removeImage(idx)}
-                                                className="absolute top-1 right-1 p-1 bg-black/50 hover:bg-red-500 rounded-full text-white transition-colors opacity-0 group-hover:opacity-100"
-                                            >
-                                                <X size={14} />
-                                            </button>
-                                        </div>
+                            <div>
+                                <label className="block text-sm font-medium text-text-muted mb-2">Stile Preferito</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {STYLES.map(style => (
+                                        <button
+                                            key={style}
+                                            type="button"
+                                            onClick={() => toggleStyle(style)}
+                                            className={clsx(
+                                                "px-3 py-1.5 rounded-full text-sm font-medium transition-colors border",
+                                                formData.styles.includes(style)
+                                                    ? "bg-accent/20 border-accent text-accent"
+                                                    : "bg-bg-tertiary border-border text-text-muted hover:border-text-muted"
+                                            )}
+                                        >
+                                            {style}
+                                        </button>
                                     ))}
                                 </div>
-                            )}
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-text-muted mb-1">Descrizione</label>
+                                <textarea
+                                    value={formData.description}
+                                    onChange={e => setFormData({ ...formData, description: e.target.value })}
+                                    className="w-full bg-bg-tertiary border border-border rounded-lg px-4 py-3 text-text-primary focus:border-accent focus:outline-none min-h-[100px]"
+                                    placeholder="Descrivi brevemente la tua idea..."
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-text-muted mb-2">Immagini di Riferimento</label>
+                                <DragDropUpload
+                                    onUpload={handleImageUpload}
+                                    label="Carica immagini"
+                                    sublabel="Clicca o trascina per aggiungere reference"
+                                    className="mb-4"
+                                />
+                                {formData.images.length > 0 && (
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                        {formData.images.map((img, idx) => (
+                                            <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-border group">
+                                                <img src={img} alt={`Reference ${idx + 1}`} className="w-full h-full object-cover" />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeImage(idx)}
+                                                    className="absolute top-1 right-1 p-1 bg-black/50 hover:bg-red-500 rounded-full text-white transition-colors opacity-0 group-hover:opacity-100"
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     <div className="pt-4 border-t border-border">
                         <label className="flex items-start gap-3 cursor-pointer group">

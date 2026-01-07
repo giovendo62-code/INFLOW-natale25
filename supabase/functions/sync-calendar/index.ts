@@ -17,91 +17,121 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     try {
-        // 1. Fetch users with active integrations
-        const { data: integrations, error: fetchError } = await supabase
-            .from('user_integrations')
-            .select('*')
-            .eq('provider', 'google');
+        const { user_id: reqUserId } = await req.json().catch(() => ({}));
+
+        let query = supabase.from('user_integrations').select('*').eq('provider', 'google');
+        if (reqUserId) {
+            query = query.eq('user_id', reqUserId);
+        }
+
+        const { data: integrations, error: fetchError } = await query;
 
         if (fetchError) throw fetchError;
 
-        let totalSyncedCount = 0;
+        let totalSynced = 0;
+        let logs: string[] = [];
 
         for (const integration of integrations) {
             const user_id = integration.user_id;
-            // 2. Validation: Check if token is expired
             const now = new Date();
-            const expiresAt = new Date(integration.expires_at);
-            let accessToken = integration.access_token;
+            const pastMonth = new Date();
+            pastMonth.setDate(now.getDate() - 30);
+            const nextMonths = new Date();
+            nextMonths.setDate(now.getDate() + 90);
 
-            if (now >= expiresAt) {
-                // Refresh Token logic would go here
-                console.log(`Refreshing token for user ${user_id}...`);
-                // For now, if expired, we skip. In a real app, you'd refresh and update the integration.
-                continue;
-            }
+            let syncDetails = { inserted: 0, updated: 0, skipped_allday: 0, skipped_error: 0 };
 
-            // 3. Sync events based on Calendar Mapping
-            let syncedCount = 0;
             const mapping = integration.settings?.calendar_mapping || {};
-            // If no mapping, we might default to syncing primary calendar to the connected user
             const syncs = Object.entries(mapping).length > 0
                 ? Object.entries(mapping)
                 : [[user_id, 'primary']];
 
             for (const [artistId, calendarId] of syncs) {
-                // Fetch events for this specific calendar
-                console.log(`Syncing calendar ${calendarId} for artist ${artistId}...`);
-                const nextMonth = new Date();
-                nextMonth.setDate(now.getDate() + 30);
+                logs.push(`Processing calendar ${calendarId} for artist ${artistId}...`);
 
-                // Need to URL encode calendarId
                 const encodedCalId = encodeURIComponent(calendarId as string);
+                const eventsUrl = `https://www.googleapis.com/calendar/v3/calendars/${encodedCalId}/events?timeMin=${pastMonth.toISOString()}&timeMax=${nextMonths.toISOString()}&singleEvents=true`;
 
-                const eventsResponse = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodedCalId}/events?timeMin=${now.toISOString()}&timeMax=${nextMonth.toISOString()}&singleEvents=true`, {
-                    headers: { Authorization: `Bearer ${accessToken}` },
+                const eventsResponse = await fetch(eventsUrl, {
+                    headers: { Authorization: `Bearer ${integration.access_token}` },
                 });
 
                 if (!eventsResponse.ok) {
-                    console.error(`Failed to fetch events for artist ${artistId} (cal: ${calendarId}): ${eventsResponse.statusText}`);
+                    logs.push(`Error fetching Google Calendar: ${eventsResponse.statusText}`);
                     continue;
                 }
 
                 const eventsData = await eventsResponse.json();
                 const events = eventsData.items || [];
+                logs.push(`Found ${events.length} events in Google Calendar.`);
 
-                // We get the artist's studio_id 
-                const { data: userData, error: userError } = await supabase.from('users').select('studio_id').eq('id', artistId).single();
-
-                if (userError || !userData?.studio_id) {
-                    console.warn(`Artist ${artistId} has no studio_id, skipping.`);
+                // Get Studio ID
+                const { data: userData } = await supabase.from('users').select('studio_id').eq('id', artistId).single();
+                if (!userData?.studio_id) {
+                    logs.push(`Artist ${artistId} has no studio_id. Skipping.`);
                     continue;
                 }
-                const studioId = userData.studio_id;
+
+                // Find or Create Placeholder Client for this Studio
+                let clientId = '00000000-0000-0000-0000-000000000000'; // Default fallback
+
+                // Try to find a client named "Google Calendar" for this studio
+                const { data: placeholderClient } = await supabase
+                    .from('clients')
+                    .select('id')
+                    .eq('studio_id', userData.studio_id)
+                    .eq('full_name', 'Google Calendar Import')
+                    .maybeSingle();
+
+                if (placeholderClient) {
+                    clientId = placeholderClient.id;
+                } else {
+                    // Create it
+                    const { data: newClient, error: createClientError } = await supabase
+                        .from('clients')
+                        .insert({
+                            studio_id: userData.studio_id,
+                            full_name: 'Google Calendar Import',
+                            email: `google-import-${userData.studio_id}@inkflow.app`,
+                            phone: '0000000000',
+                            notes: 'Cliente generato automaticamente per importazione Google Calendar'
+                        })
+                        .select('id')
+                        .single();
+
+                    if (!createClientError && newClient) {
+                        clientId = newClient.id;
+                        logs.push(`Created placeholder client for Studio ${userData.studio_id}`);
+                    } else {
+                        logs.push(`Failed to create placeholder client: ${createClientError?.message}. Using fallback.`);
+                        // If fallback is also missing, next insert will fail.
+                    }
+                }
 
                 for (const event of events) {
-                    if (!event.start?.dateTime) continue; // Skip all-day events
+                    if (!event.start?.dateTime) {
+                        syncDetails.skipped_allday++;
+                        continue;
+                    }
 
                     const startTime = event.start.dateTime;
                     const endTime = event.end?.dateTime || event.start.dateTime;
 
-                    const { data: existing, error: selectError } = await supabase.from('appointments').select('id').eq('google_event_id', event.id).maybeSingle();
-
-                    if (selectError) continue;
+                    const { data: existing } = await supabase.from('appointments').select('id').eq('google_event_id', event.id).maybeSingle();
 
                     if (existing) {
                         await supabase.from('appointments').update({
                             start_time: startTime,
                             end_time: endTime,
                             service_name: event.summary || 'Google Event',
-                            artist_id: artistId // Ensure artist is updated if changed
+                            artist_id: artistId
                         }).eq('id', existing.id);
-                        syncedCount++;
+                        syncDetails.updated++;
                     } else {
                         await supabase.from('appointments').insert({
-                            studio_id: studioId,
+                            studio_id: userData.studio_id,
                             artist_id: artistId,
-                            client_id: '00000000-0000-0000-0000-000000000000',
+                            client_id: clientId,
                             service_name: event.summary || 'Google Event',
                             start_time: startTime,
                             end_time: endTime,
@@ -109,17 +139,18 @@ serve(async (req) => {
                             notes: `Synced from Google Calendar: ${event.description || ''}`,
                             google_event_id: event.id
                         });
-                        syncedCount++;
+                        syncDetails.inserted++;
                     }
                 }
             }
-            console.log(`Integration for user ${user_id} synced ${syncedCount} total events.`);
-            totalSyncedCount += syncedCount;
+            totalSynced += syncDetails.inserted + syncDetails.updated;
+            logs.push(`Sync Result for ${user_id}: +${syncDetails.inserted} new, ~${syncDetails.updated} updated, -${syncDetails.skipped_allday} all-day skipped.`);
         }
 
         return new Response(JSON.stringify({
             message: "Sync process completed",
-            synced_events_count: totalSyncedCount
+            synced_events_count: totalSynced,
+            logs: logs
         }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200

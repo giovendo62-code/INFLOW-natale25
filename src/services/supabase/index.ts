@@ -1231,14 +1231,14 @@ Formatta la risposta ESCLUSIVAMENTE come un JSON array di stringhe, esempio: ["C
 
             if (error) throw error;
         },
-        syncEvents: async (userId: string): Promise<{ synced: number }> => {
+        syncEvents: async (userId: string): Promise<{ synced_events_count: number; logs?: string[] }> => {
             // Call Edge Function to sync
             const { data, error } = await supabase.functions.invoke('sync-calendar', {
                 body: { user_id: userId }
             });
 
             if (error) throw error;
-            return data || { synced: 0 };
+            return data || { synced_events_count: 0, logs: [] };
         },
         listCalendars: async (userId: string): Promise<any[]> => {
             const { data, error } = await supabase.functions.invoke('fetch-google-calendars', {
