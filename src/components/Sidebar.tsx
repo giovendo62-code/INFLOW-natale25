@@ -113,7 +113,8 @@ export const Sidebar = () => {
     });
 
     // Current App URL for sharing
-    const appUrl = window.location.origin;
+    // Current App URL for sharing (Hardcoded as requested)
+    const appUrl = "https://inflow-natale25.vercel.app/login";
 
     return (
         <>
