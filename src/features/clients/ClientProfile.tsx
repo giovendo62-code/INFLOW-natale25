@@ -191,7 +191,7 @@ export const ClientProfile: React.FC = () => {
                 // --- AUTO SYNC TO GOOGLE SHEETS ---
                 try {
                     // Fetch Studio Config
-                    const { data: studioData } = await api.supabase
+                    const { data: studioData } = await supabase
                         .from('studios')
                         .select('google_sheets_config')
                         .eq('id', user.studio_id)
@@ -214,7 +214,7 @@ export const ClientProfile: React.FC = () => {
                         ];
 
                         // Call Edge Function
-                        await api.supabase.functions.invoke('fetch-google-sheets', {
+                        await supabase.functions.invoke('fetch-google-sheets', {
                             body: {
                                 action: 'append_data',
                                 spreadsheetId: config.spreadsheet_id,
