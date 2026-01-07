@@ -50,7 +50,7 @@ export const AcademyPage: React.FC = () => {
 
     useEffect(() => {
         const loadEnrollments = async () => {
-            if (view === 'MANAGE' && activeTab === 'ATTENDANCE' && selectedCourse?.id) {
+            if (view === 'MANAGE' && (activeTab === 'ATTENDANCE' || activeTab === 'STUDENTS') && selectedCourse?.id) {
                 setLoadingCourseEnrollments(true);
                 try {
                     const studentIds = selectedCourse.student_ids || [];
@@ -224,14 +224,19 @@ export const AcademyPage: React.FC = () => {
                 setStudentEnrollment(updated);
             }
 
-            await api.academy.logAttendance({
-                course_id: selectedCourse.id,
-                student_id: studentId,
-                action: 'INCREMENT',
-                previous_value: enrollment.attended_days,
-                new_value: newAttended,
-                created_by: 'current-user'
-            });
+            // Non-blocking log
+            try {
+                await api.academy.logAttendance({
+                    course_id: selectedCourse.id,
+                    student_id: studentId,
+                    action: 'INCREMENT',
+                    previous_value: enrollment.attended_days,
+                    new_value: newAttended,
+                    created_by: 'current-user'
+                });
+            } catch (logErr) {
+                console.warn("Logging failed", logErr);
+            }
         } catch (error) {
             console.error(error);
             alert("Errore aggiornamento presenza.");
@@ -726,30 +731,61 @@ export const AcademyPage: React.FC = () => {
                                         {(selectedCourse.student_ids || []).length === 0 && (
                                             <p className="text-text-muted italic">Nessun studente iscritto.</p>
                                         )}
-                                        {(selectedCourse.student_ids || []).map((sid, idx) => (
-                                            <div key={idx} className="flex items-center justify-between p-4 bg-bg-tertiary rounded-lg border border-border">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent font-bold">
-                                                        {allUsers.find(s => s.id === sid)?.full_name?.substring(0, 2).toUpperCase() || 'ST'}
+                                        {(selectedCourse.student_ids || []).map((sid) => {
+                                            const enrollment = courseEnrollments[sid];
+                                            const isFull = enrollment && enrollment.attended_days >= enrollment.allowed_days;
+
+                                            return (
+                                                <div key={sid} className="bg-bg-tertiary p-4 rounded-xl border border-border shadow-sm flex flex-col gap-4">
+                                                    {/* Header: User Info + Remove */}
+                                                    <div className="flex justify-between items-start">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-12 h-12 rounded-full bg-accent/20 flex items-center justify-center text-accent font-bold text-lg">
+                                                                {allUsers.find(s => s.id === sid)?.full_name?.substring(0, 2).toUpperCase() || 'ST'}
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-white font-bold text-lg">
+                                                                    {allUsers.find(s => s.id === sid)?.full_name || 'Sconosciuto'}
+                                                                </p>
+                                                                <p className="text-sm text-text-muted">
+                                                                    {allUsers.find(s => s.id === sid)?.email || sid}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            onClick={() => handleRemoveStudent(sid)}
+                                                            className="p-2 text-text-muted hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                            title="Rimuovi dal corso"
+                                                        >
+                                                            <Trash2 size={20} />
+                                                        </button>
                                                     </div>
-                                                    <div>
-                                                        <p className="text-white font-medium">
-                                                            {allUsers.find(s => s.id === sid)?.full_name || 'Studente Sconosciuto'}
-                                                        </p>
-                                                        <p className="text-sm text-text-muted">
-                                                            {allUsers.find(s => s.id === sid)?.email || sid}
-                                                        </p>
-                                                        <p className="text-xs text-text-muted">Iscritto</p>
+
+                                                    {/* Footer: Attendance + Action */}
+                                                    <div className="flex items-center justify-between bg-black/20 p-3 rounded-lg border border-white/5">
+                                                        <div>
+                                                            <span className="text-xs text-text-muted uppercase font-bold tracking-wider block mb-1">Presenze</span>
+                                                            <span className="text-xl font-bold text-white">
+                                                                {enrollment ? `${enrollment.attended_days} / ${enrollment.allowed_days}` : 'Caricamento...'}
+                                                            </span>
+                                                        </div>
+
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleQuickAttendance(sid); }}
+                                                            disabled={!enrollment || isFull}
+                                                            className={clsx(
+                                                                "w-12 h-12 rounded-xl flex items-center justify-center transition-all shadow-lg shrink-0",
+                                                                isFull
+                                                                    ? "bg-bg-primary text-text-muted cursor-not-allowed border border-border"
+                                                                    : "bg-green-500 text-white hover:bg-green-600 shadow-green-500/20"
+                                                            )}
+                                                        >
+                                                            {isFull ? <Check size={24} /> : <Plus size={24} />}
+                                                        </button>
                                                     </div>
                                                 </div>
-                                                <button
-                                                    onClick={() => handleRemoveStudent(sid)}
-                                                    className="text-text-muted hover:text-red-400 px-3 py-1 rounded bg-bg-secondary border border-border transition-colors"
-                                                >
-                                                    Rimuovi
-                                                </button>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}
