@@ -288,7 +288,7 @@ export interface IRepository {
     connect(userId: string, code: string): Promise<void>;
     disconnect(userId: string): Promise<void>;
     updateSettings(userId: string, settings: any): Promise<void>;
-    syncEvents(userId: string): Promise<{ synced: number }>;
+    syncEvents(userId: string): Promise<{ synced_events_count: number; logs?: string[] }>;
     listCalendars(userId: string): Promise<any[]>;
   };
   waitlist: {
