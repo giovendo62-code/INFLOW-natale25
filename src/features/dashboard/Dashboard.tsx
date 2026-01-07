@@ -46,7 +46,9 @@ export const Dashboard: React.FC = () => {
     React.useEffect(() => {
         const loadDashboardData = async () => {
             try {
-                if (user.role === 'ARTIST') {
+                const isArtist = user.role === 'ARTIST' || user.role === 'artist';
+
+                if (isArtist) {
                     const c = await api.artists.getContract(user.id);
                     setContract(c);
                 }
@@ -73,7 +75,13 @@ export const Dashboard: React.FC = () => {
 
                 // Pass user.studio_id to filter by studio
                 // If user is ARTIST, also pass user.id as artistId (3rd arg) to filter their appointments
-                const artistIdFilter = user.role === 'ARTIST' ? user.id : undefined;
+                const isArtist = user.role === 'ARTIST' || user.role === 'artist';
+                if (isArtist) {
+                    const c = await api.artists.getContract(user.id);
+                    setContract(c);
+                }
+
+                const artistIdFilter = isArtist ? user.id : undefined;
                 const appts = await api.appointments.list(today, endNextWeek, artistIdFilter, user.studio_id);
 
                 const enhancedAppts = await Promise.all(appts.map(async (appt) => {
