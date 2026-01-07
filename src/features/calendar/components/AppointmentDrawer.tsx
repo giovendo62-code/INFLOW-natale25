@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLayoutStore } from '../../../stores/layoutStore';
-import { X, Save, Trash2, Clock, User, Calendar as CalIcon, Banknote } from 'lucide-react';
+import { X, Save, Trash2, Clock, User, Calendar as CalIcon, Banknote, Search } from 'lucide-react';
 import clsx from 'clsx';
 import type { Appointment, Client, User as StudioUser } from '../../../services/types';
 import { api } from '../../../services/api';
@@ -30,6 +30,7 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
     const { user } = useAuth();
     const { isPrivacyMode } = useLayoutStore();
     const [clients, setClients] = useState<Client[]>([]);
+    const [clientSearch, setClientSearch] = useState('');
     const [artists, setArtists] = useState<StudioUser[]>([]);
 
     // Delete Confirmation State
@@ -179,18 +180,43 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
                     {/* Client Selection */}
                     <div>
                         <label className="block text-sm font-medium text-text-secondary mb-2">Cliente</label>
-                        <div className="relative">
-                            <select
-                                className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none appearance-none"
-                                value={formData.client_id}
-                                onChange={(e) => setFormData({ ...formData, client_id: e.target.value })}
-                            >
-                                <option value="">Seleziona Cliente</option>
-                                {clients.map(client => (
-                                    <option key={client.id} value={client.id}>{client.full_name}</option>
-                                ))}
-                            </select>
-                            <User className="absolute left-3 top-2.5 text-text-muted" size={18} />
+                        <div className="space-y-2">
+                            {/* Search Input */}
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none placeholder:text-text-muted"
+                                    placeholder="Cerca cliente..."
+                                    value={clientSearch}
+                                    onChange={(e) => setClientSearch(e.target.value)}
+                                />
+                                <Search className="absolute left-3 top-2.5 text-text-muted" size={18} />
+                            </div>
+
+                            {/* Dropdown */}
+                            <div className="relative">
+                                <select
+                                    className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none appearance-none"
+                                    value={formData.client_id}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, client_id: e.target.value });
+                                        // Optional: clear search on selection? Users might prefer it stays.
+                                        // For now, let's keep it simple.
+                                    }}
+                                >
+                                    <option value="">Seleziona Cliente</option>
+                                    {clients
+                                        .filter(client =>
+                                            client.full_name.toLowerCase().includes(clientSearch.toLowerCase()) ||
+                                            client.email.toLowerCase().includes(clientSearch.toLowerCase())
+                                        )
+                                        .map(client => (
+                                            <option key={client.id} value={client.id}>{client.full_name}</option>
+                                        ))
+                                    }
+                                </select>
+                                <User className="absolute left-3 top-2.5 text-text-muted" size={18} />
+                            </div>
                         </div>
                     </div>
 
