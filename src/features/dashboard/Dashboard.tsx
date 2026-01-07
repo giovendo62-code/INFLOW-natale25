@@ -71,7 +71,10 @@ export const Dashboard: React.FC = () => {
                 const today = startOfDay(new Date());
                 const endNextWeek = endOfWeek(addWeeks(today, 1), { weekStartsOn: 1 });
 
-                const appts = await api.appointments.list(today, endNextWeek);
+                // Pass user.studio_id to filter by studio
+                // If user is ARTIST, also pass user.id as artistId (3rd arg) to filter their appointments
+                const artistIdFilter = user.role === 'ARTIST' ? user.id : undefined;
+                const appts = await api.appointments.list(today, endNextWeek, artistIdFilter, user.studio_id);
 
                 const enhancedAppts = await Promise.all(appts.map(async (appt) => {
                     if (appt.client) return appt;
@@ -125,7 +128,7 @@ export const Dashboard: React.FC = () => {
         const loadStats = async () => {
             if (user.role === 'owner' || user.role === 'STUDIO_ADMIN' || user.role === 'MANAGER') {
                 try {
-                    const fStats = await api.financials.getStats(new Date());
+                    const fStats = await api.financials.getStats(new Date(), user.studio_id);
                     let wCount = 0;
                     if (user.studio_id) {
                         const wList = await api.waitlist.list(user.studio_id);
@@ -191,13 +194,30 @@ export const Dashboard: React.FC = () => {
 
     const renderArtistWidgets = () => {
         const commissionRate = contract?.commission_rate || 50;
-        const netEarnings = isPrivacyMode ? '••••' : `€${((4200 * commissionRate) / 100).toLocaleString()}`;
+        const netEarnings = isPrivacyMode ? '••••' : `€${((4200 * commissionRate) / 100).toLocaleString()}`; // TODO: Calculate real earnings
+
+        // Real data calculation
+        const myApptsCount = appointments.length;
+
+        const now = new Date();
+        const nextAppt = appointments.find(a => new Date(a.start_time) > now);
+        let nextApptText = 'Nessuno';
+
+        if (nextAppt) {
+            const diffMs = new Date(nextAppt.start_time).getTime() - now.getTime();
+            const diffMins = Math.round(diffMs / 60000);
+            if (diffMins < 60) nextApptText = `tra ${diffMins}m`;
+            else {
+                const diffHours = Math.floor(diffMins / 60);
+                nextApptText = `tra ${diffHours}h`;
+            }
+        }
 
         return (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                 <StatsCard
                     title="I Miei Appuntamenti"
-                    value="3"
+                    value={myApptsCount.toString()}
                     icon={Calendar}
                     color="bg-accent"
                 />
@@ -211,14 +231,14 @@ export const Dashboard: React.FC = () => {
                 )}
                 <StatsCard
                     title="Prossimo Cliente"
-                    value="tra 45m"
+                    value={nextApptText}
                     icon={Clock}
                     color="bg-blue-500"
                 />
                 <StatsCard
                     title="I Tuoi Guadagni (Netto)"
                     value={netEarnings}
-                    change={isPrivacyMode ? undefined : "8%"}
+                    change={isPrivacyMode ? undefined : "8%"} // Placeholder change
                     isPositive={true}
                     icon={TrendingUp}
                     color="bg-green-500"
