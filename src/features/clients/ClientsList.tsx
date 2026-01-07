@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, Mail, Phone, MessageCircle, Megaphone, QrCode, X, Copy, Check, Star, Filter } from 'lucide-react';
+import { Search, Plus, Mail, Phone, MessageCircle, Megaphone, QrCode, X, Copy, Check, Star, Filter, ExternalLink } from 'lucide-react';
 import { api } from '../../services/api';
 import type { Client } from '../../services/types';
 import { useNavigate } from 'react-router-dom';
@@ -392,8 +392,15 @@ export const ClientsList: React.FC = () => {
                                             type="text"
                                             readOnly
                                             value={registrationLink}
-                                            className="flex-1 bg-bg-primary border border-border rounded-lg px-3 py-2 text-sm text-text-secondary outline-none"
+                                            className="flex-1 bg-bg-primary border border-border rounded-lg px-3 py-2 text-sm text-text-secondary outline-none font-mono"
                                         />
+                                        <button
+                                            onClick={() => window.open(registrationLink, '_blank')}
+                                            className="bg-bg-tertiary hover:bg-white/10 border border-border text-white p-2 rounded-lg transition-colors"
+                                            title="Apri Link"
+                                        >
+                                            <ExternalLink size={18} />
+                                        </button>
                                         <button
                                             onClick={() => {
                                                 navigator.clipboard.writeText(registrationLink);
