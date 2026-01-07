@@ -65,7 +65,7 @@ export const useCalendar = () => {
                 artistFilter = user.id;
             }
 
-            const data = await api.appointments.list(start, end, artistFilter || undefined);
+            const data = await api.appointments.list(start, end, artistFilter || undefined, user?.studio_id);
             setAppointments(data);
         } catch (err) {
             console.error(err);

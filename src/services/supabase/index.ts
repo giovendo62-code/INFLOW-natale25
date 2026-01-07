@@ -132,7 +132,7 @@ export class SupabaseRepository implements IRepository {
     };
 
     appointments = {
-        list: async (start: Date, end: Date, artistId?: string): Promise<Appointment[]> => {
+        list: async (start: Date, end: Date, artistId?: string, studioId?: string): Promise<Appointment[]> => {
             let query = supabase
                 .from('appointments')
                 .select('*, client:clients(*)')
@@ -141,6 +141,10 @@ export class SupabaseRepository implements IRepository {
 
             if (artistId) {
                 query = query.eq('artist_id', artistId);
+            }
+
+            if (studioId) {
+                query = query.eq('studio_id', studioId);
             }
 
             const { data, error } = await query;

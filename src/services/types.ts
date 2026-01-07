@@ -218,7 +218,7 @@ export interface IRepository {
     updatePassword(password: string): Promise<void>;
   };
   appointments: {
-    list(start: Date, end: Date, artistId?: string): Promise<Appointment[]>;
+    list(start: Date, end: Date, artistId?: string, studioId?: string): Promise<Appointment[]>;
     create(data: Omit<Appointment, 'id'>): Promise<Appointment>;
     update(id: string, data: Partial<Appointment>): Promise<Appointment>;
     delete(id: string): Promise<void>;

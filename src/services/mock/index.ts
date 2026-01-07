@@ -362,7 +362,7 @@ export class MockRepository implements IRepository {
     };
 
     appointments = {
-        list: async (start: Date, end: Date, artistId?: string): Promise<Appointment[]> => {
+        list: async (start: Date, end: Date, artistId?: string, studioId?: string): Promise<Appointment[]> => {
             await new Promise(resolve => setTimeout(resolve, 500));
 
             let apts = MOCK_APPOINTMENTS.filter(a => {
