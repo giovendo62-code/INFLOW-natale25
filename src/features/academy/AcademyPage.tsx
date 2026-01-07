@@ -40,9 +40,37 @@ export const AcademyPage: React.FC = () => {
     const [profileEnrollments, setProfileEnrollments] = useState<Record<string, CourseEnrollment>>({});
     const [loadingProfile, setLoadingProfile] = useState(false);
 
+    // Quick Attendance State
+    const [courseEnrollments, setCourseEnrollments] = useState<Record<string, CourseEnrollment>>({}); // Map studentId -> Enrollment
+    const [loadingCourseEnrollments, setLoadingCourseEnrollments] = useState(false);
+
     useEffect(() => {
         loadData();
     }, [user?.studio_id]);
+
+    useEffect(() => {
+        const loadEnrollments = async () => {
+            if (view === 'MANAGE' && activeTab === 'ATTENDANCE' && selectedCourse?.id) {
+                setLoadingCourseEnrollments(true);
+                try {
+                    const studentIds = selectedCourse.student_ids || [];
+                    const map: Record<string, CourseEnrollment> = {};
+                    await Promise.all(studentIds.map(async (sid) => {
+                        try {
+                            const enroll = await api.academy.getEnrollment(selectedCourse.id, sid);
+                            if (enroll) map[sid] = enroll;
+                        } catch (e) { console.error(e); }
+                    }));
+                    setCourseEnrollments(map);
+                } catch (e) {
+                    console.error(e);
+                } finally {
+                    setLoadingCourseEnrollments(false);
+                }
+            }
+        };
+        loadEnrollments();
+    }, [view, activeTab, selectedCourse?.id]);
 
     const loadData = async () => {
         if (!user?.studio_id) return;
@@ -169,6 +197,44 @@ export const AcademyPage: React.FC = () => {
         } catch (error) {
             console.error("Errore durante la rimozione:", error);
             alert("Errore durante la rimozione dello studente.");
+        }
+    };
+
+    const handleQuickAttendance = async (studentId: string) => {
+        if (!selectedCourse) return;
+        const enrollment = courseEnrollments[studentId];
+        if (!enrollment) return;
+
+        if (enrollment.attended_days >= enrollment.allowed_days) {
+            alert("Limite presenze raggiunto per questo studente.");
+            return;
+        }
+
+        try {
+            const newAttended = enrollment.attended_days + 1;
+            const updated = await api.academy.updateEnrollment(selectedCourse.id, studentId, {
+                attended_days: newAttended,
+                attendance_updated_at: new Date().toISOString()
+            });
+
+            // Update local state
+            setCourseEnrollments(prev => ({ ...prev, [studentId]: updated }));
+            // Also update detailed view state if matching
+            if (studentId === selectedStudentId && studentEnrollment) {
+                setStudentEnrollment(updated);
+            }
+
+            await api.academy.logAttendance({
+                course_id: selectedCourse.id,
+                student_id: studentId,
+                action: 'INCREMENT',
+                previous_value: enrollment.attended_days,
+                new_value: newAttended,
+                created_by: 'current-user'
+            });
+        } catch (error) {
+            console.error(error);
+            alert("Errore aggiornamento presenza.");
         }
     };    // Detailed Attendance Logic
     const fetchEnrollmentData = async (studentId: string) => {
