@@ -5,7 +5,7 @@ import type { Client } from '../../services/types';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 
-import { ImportClientsModal } from './components/ImportClientsModal';
+import { GoogleSheetsSyncModal } from './components/GoogleSheetsSyncModal';
 import { ReviewRequestModal } from '../../components/ReviewRequestModal';
 
 export const ClientsList: React.FC = () => {
@@ -140,7 +140,7 @@ export const ClientsList: React.FC = () => {
                                     className="flex items-center gap-2 bg-green-600/10 border border-green-600/20 hover:bg-green-600/20 text-green-500 px-3 py-2 rounded-lg font-medium transition-colors whitespace-nowrap"
                                     title="Importa da Google Sheets"
                                 >
-                                    <span className="hidden lg:inline">Importa Google</span>
+                                    <span className="hidden lg:inline">Sync Google Sheets</span>
                                 </button>
                             )}
                             <button
@@ -422,10 +422,10 @@ export const ClientsList: React.FC = () => {
                 )
             }
 
-            <ImportClientsModal
+            <GoogleSheetsSyncModal
                 isOpen={showImport}
                 onClose={() => setShowImport(false)}
-                onImportSuccess={() => loadClients()}
+                onSyncSuccess={() => loadClients()}
             />
 
             <ReviewRequestModal
