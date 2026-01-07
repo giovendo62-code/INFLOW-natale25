@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import type { WaitlistEntry } from '../../services/types';
-import { Search, Filter, QrCode, CheckCircle, Clock, UserPlus, ArrowUpRight, ChevronDown, ArrowDownWideNarrow, ArrowUpNarrowWide } from 'lucide-react';
+import { Search, Filter, QrCode, CheckCircle, Clock, UserPlus, ArrowUpRight, ChevronDown, ArrowDownWideNarrow, ArrowUpNarrowWide, PenTool } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../auth/AuthContext';
 
@@ -317,6 +317,17 @@ export const WaitlistManager: React.FC = () => {
                                                         {entry.client_name}
                                                     </div>
                                                     <div className="text-xs text-text-muted truncate max-w-[150px]">{entry.email}</div>
+                                                    <div className="flex gap-1 mt-1">
+                                                        {entry.interest_type === 'ACADEMY' ? (
+                                                            <span className="text-[10px] bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/20 flex items-center gap-1">
+                                                                🎓 Academy
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded border border-accent/20 flex items-center gap-1">
+                                                                <PenTool size={10} /> Tattoo
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <button
                                                     onClick={() => navigate(`/clients/${entry.client_id}`)}
@@ -380,6 +391,17 @@ export const WaitlistManager: React.FC = () => {
                                     <div className="min-w-0 flex-1">
                                         <h4 className="font-bold text-white text-lg truncate hover:text-accent cursor-pointer transition-colors" onClick={() => navigate(`/clients/${entry.client_id}`)}>{entry.client_name}</h4>
                                         <p className="text-xs text-text-muted truncate">{entry.email}</p>
+                                        <div className="flex gap-1 mt-1">
+                                            {entry.interest_type === 'ACADEMY' ? (
+                                                <span className="text-[10px] bg-purple-500/10 text-purple-400 px-1.5 py-0.5 rounded border border-purple-500/20 flex items-center gap-1 w-fit">
+                                                    🎓 Academy
+                                                </span>
+                                            ) : (
+                                                <span className="text-[10px] bg-accent/10 text-accent px-1.5 py-0.5 rounded border border-accent/20 flex items-center gap-1 w-fit">
+                                                    <PenTool size={10} /> Tattoo
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
 
                                     <span className="text-xs text-text-muted bg-bg-tertiary px-2 py-1 rounded">

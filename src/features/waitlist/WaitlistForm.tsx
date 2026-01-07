@@ -16,6 +16,7 @@ export const WaitlistForm: React.FC = () => {
     const [template, setTemplate] = useState<ConsentTemplate | null>(null);
 
     const [formData, setFormData] = useState({
+        interest_type: 'TATTOO' as 'TATTOO' | 'ACADEMY',
         full_name: '',
         email: '',
         phone: '',
@@ -139,6 +140,7 @@ export const WaitlistForm: React.FC = () => {
             email: formData.email, // Ensure email is passed
             phone: formData.phone,
             styles: formData.styles,
+            interest_type: formData.interest_type,
             description: formData.description,
             artist_pref_id: formData.artist_pref_id,
             images: formData.images
@@ -255,6 +257,49 @@ export const WaitlistForm: React.FC = () => {
                 </div>
 
                 <form onSubmit={handleContinue} className="bg-bg-secondary p-8 rounded-2xl border border-border shadow-xl space-y-6">
+                    {/* Interest Type */}
+                    <div className="space-y-4">
+                        <h3 className="text-lg font-semibold text-text-primary border-b border-border pb-2">A cosa sei interessato? *</h3>
+                        <div className="flex gap-4">
+                            <label className={clsx(
+                                "flex-1 flex items-center justify-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all",
+                                formData.interest_type === 'TATTOO'
+                                    ? "border-accent bg-accent/10 text-white"
+                                    : "border-border bg-bg-tertiary text-text-muted hover:border-text-muted"
+                            )}>
+                                <input
+                                    type="radio"
+                                    name="interest_type"
+                                    value="TATTOO"
+                                    checked={formData.interest_type === 'TATTOO'}
+                                    onChange={() => setFormData({ ...formData, interest_type: 'TATTOO' })}
+                                    className="hidden"
+                                />
+                                <PenTool size={20} />
+                                <span className="font-bold">Tatuaggio</span>
+                            </label>
+                            <label className={clsx(
+                                "flex-1 flex items-center justify-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all",
+                                formData.interest_type === 'ACADEMY'
+                                    ? "border-accent bg-accent/10 text-white"
+                                    : "border-border bg-bg-tertiary text-text-muted hover:border-text-muted"
+                            )}>
+                                <input
+                                    type="radio"
+                                    name="interest_type"
+                                    value="ACADEMY"
+                                    checked={formData.interest_type === 'ACADEMY'}
+                                    onChange={() => setFormData({ ...formData, interest_type: 'ACADEMY' })}
+                                    className="hidden"
+                                />
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xl">🎓</span>
+                                    <span className="font-bold">Academy</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
                     {/* Anagrafica */}
                     <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-text-primary border-b border-border pb-2">Dati Personali</h3>

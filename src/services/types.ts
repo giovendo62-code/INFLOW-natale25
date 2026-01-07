@@ -369,6 +369,7 @@ export interface WaitlistEntry {
   email: string;
   phone?: string;
   client_name: string; // Joined for display
+  interest_type?: 'TATTOO' | 'ACADEMY';
   preferred_artist_id?: string;
   artist_pref_id?: string;
   styles: string[];
