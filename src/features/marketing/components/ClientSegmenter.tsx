@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Megaphone, CheckSquare, Square } from 'lucide-react';
 import { api } from '../../../services/api';
 import type { Client, MarketingCampaign } from '../../../services/types';
+import { useAuth } from '../../auth/AuthContext';
 import clsx from 'clsx';
 
 interface ClientSegmenterProps {
@@ -46,10 +47,15 @@ export const ClientSegmenter: React.FC<ClientSegmenterProps> = ({ data, onChange
 
     }, [searchTerm, broadcastFilter, styleFilter, selectedClients, clients]);
 
+    const { user } = useAuth();
+
+    // ...
+
     const loadClients = async () => {
+        if (!user?.studio_id) return;
         setLoading(true);
         try {
-            const allClients = await api.clients.list();
+            const allClients = await api.clients.list(undefined, user.studio_id);
             setClients(allClients);
         } catch (error) {
             console.error('Failed to load clients', error);
