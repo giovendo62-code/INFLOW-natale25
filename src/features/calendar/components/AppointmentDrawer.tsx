@@ -54,7 +54,7 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
             const loadData = async () => {
                 console.log('AppointmentDrawer: Loading data for studio:', user.studio_id);
                 const [clientsList, teamList] = await Promise.all([
-                    api.clients.list(),
+                    api.clients.list(undefined, user.studio_id!),
                     api.settings.listTeamMembers(user.studio_id!)
                 ]);
                 console.log('AppointmentDrawer: Raw Team List:', teamList);
