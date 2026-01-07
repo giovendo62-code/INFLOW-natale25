@@ -46,12 +46,7 @@ export const Dashboard: React.FC = () => {
     React.useEffect(() => {
         const loadDashboardData = async () => {
             try {
-                const isArtist = user.role === 'ARTIST' || user.role === 'artist';
 
-                if (isArtist) {
-                    const c = await api.artists.getContract(user.id);
-                    setContract(c);
-                }
 
                 if (user.role === 'STUDENT' || user.role === 'student') {
                     // Fetch student course
