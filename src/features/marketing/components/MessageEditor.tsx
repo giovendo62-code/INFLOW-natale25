@@ -50,8 +50,9 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({ data, onChange, on
                 studioPhone: studio?.phone
             });
             setAiOptions(options);
-        } catch (error) {
+        } catch (error: any) {
             console.error('AI Generation failed:', error);
+            alert('Errore AI: ' + (error.message || JSON.stringify(error)));
         } finally {
             setGenerating(false);
         }
@@ -146,24 +147,24 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({ data, onChange, on
             </div>
 
             {/* Right: AI Generator */}
-            <div className="bg-bg-secondary p-6 rounded-lg border border-border flex flex-col">
+            <div className="bg-bg-secondary p-4 md:p-6 rounded-lg border border-border flex flex-col overflow-hidden">
                 <div className="flex items-center gap-2 mb-6">
-                    <Sparkles className="text-accent" size={24} />
-                    <h2 className="text-lg font-bold text-white">AI Assistant</h2>
+                    <Sparkles className="text-accent shrink-0" size={24} />
+                    <h2 className="text-lg font-bold text-white truncate">AI Assistant</h2>
                 </div>
 
                 <div className="space-y-4 mb-6">
-                    <div className="bg-bg-tertiary p-4 rounded-lg border border-border">
+                    <div className="bg-bg-tertiary p-3 md:p-4 rounded-lg border border-border">
                         <label className="block text-xs font-bold text-text-muted uppercase mb-2">Configurazione AI</label>
-                        <div className="flex gap-2 mb-2">
+                        <div className="flex flex-col sm:flex-row gap-2 mb-2">
                             <input
                                 type="password"
-                                placeholder="Tua API Key (Opzionale - Sovrascrive quella di sistema)"
-                                className="flex-1 bg-bg-primary border border-border rounded px-3 py-1.5 text-sm text-white focus:outline-none"
+                                placeholder="Tua API Key (Opzionale)"
+                                className="flex-1 bg-bg-primary border border-border rounded px-3 py-1.5 text-sm text-white focus:outline-none w-full"
                                 value={apiKey}
                                 onChange={(e) => setApiKey(e.target.value)}
                             />
-                            <div className="flex items-center gap-1.5 px-3 py-1 rounded bg-green-500/10 border border-green-500/20">
+                            <div className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded bg-green-500/10 border border-green-500/20 shrink-0">
                                 <span className="relative flex h-2 w-2">
                                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                                     <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
@@ -173,7 +174,7 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({ data, onChange, on
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs text-text-secondary mb-1">Obiettivo</label>
                             <select

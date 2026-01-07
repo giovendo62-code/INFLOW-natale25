@@ -24,7 +24,7 @@ export const MarketingPage: React.FC = () => {
     };
 
     return (
-        <div className="w-full pt-20 md:pt-8 p-4 md:p-8 user-select-none">
+        <div className="w-full max-w-full overflow-x-hidden pt-20 md:pt-8 p-4 md:p-8 user-select-none">
             {/* Header */}
             <div className="flex flex-col md:flex-row items-center justify-between gap-4 mb-6">
                 <div>

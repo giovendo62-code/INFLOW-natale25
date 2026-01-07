@@ -385,6 +385,7 @@ export class SupabaseRepository implements IRepository {
             if (search) {
                 query = query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
             }
+            query = query.order('full_name', { ascending: true });
             const { data, error } = await query;
             if (error) throw error;
             return data;
