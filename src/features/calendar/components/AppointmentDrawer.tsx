@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLayoutStore } from '../../../stores/layoutStore';
-import { X, Save, Trash2, Clock, User, Calendar as CalIcon, Banknote, Search } from 'lucide-react';
+import { X, Save, Trash2, Clock, User, Calendar as CalIcon, Banknote, Search, ArrowLeft } from 'lucide-react';
 import clsx from 'clsx';
 import type { Appointment, Client, User as StudioUser } from '../../../services/types';
 import { api } from '../../../services/api';
@@ -149,10 +149,21 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
             <div className="fixed top-0 right-0 h-[100dvh] w-full md:w-[500px] bg-bg-secondary border-l border-border shadow-2xl z-50 transform transition-transform duration-300 flex flex-col overflow-x-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-border bg-bg-secondary sticky top-0 z-10">
-                    <h2 className="text-xl font-bold text-text-primary">
-                        {selectedAppointment ? 'Modifica Appuntamento' : 'Nuovo Appuntamento'}
-                    </h2>
-                    <button onClick={onClose} className="p-2 hover:bg-bg-tertiary rounded-lg text-text-muted transition-colors">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={onClose}
+                            className="p-1 -ml-2 text-text-muted hover:text-white md:hidden"
+                        >
+                            <ArrowLeft size={24} />
+                        </button>
+                        <h2 className="text-xl font-bold text-text-primary">
+                            {selectedAppointment ? 'Modifica Appuntamento' : 'Nuovo Appuntamento'}
+                        </h2>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-bg-tertiary rounded-lg text-text-muted transition-colors hidden md:block">
+                        <X size={20} />
+                    </button>
+                    <button onClick={onClose} className="p-2 hover:bg-bg-tertiary rounded-lg text-text-muted transition-colors md:hidden">
                         <X size={20} />
                     </button>
                 </div>
