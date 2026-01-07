@@ -180,7 +180,7 @@ export const ArtistProfilePage: React.FC = () => {
     if (!artist) return <div className="p-8 text-center text-red-500">Artista non trovato</div>;
 
     return (
-        <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 overflow-hidden">
+        <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-6 overflow-x-hidden">
             <button onClick={() => navigate('/artists')} className="flex items-center gap-2 text-text-muted hover:text-white transition-colors mb-4">
                 <ArrowLeft size={20} /> Torna alla Lista
             </button>
