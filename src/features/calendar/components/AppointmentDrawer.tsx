@@ -448,28 +448,36 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
                         </div>
                     ) : <div />}
 
-                    <button
-                        onClick={() => {
-                            if (!formData.start_time || !formData.end_time) {
-                                alert('Data e Orario sono obbligatori');
-                                return;
-                            }
+                    <div className="flex gap-3">
+                        <button
+                            onClick={onClose}
+                            className="bg-bg-primary hover:bg-bg-tertiary text-text-primary px-6 py-3 rounded-xl font-medium transition-all shadow-lg shadow-black/20 border border-border"
+                        >
+                            Annulla
+                        </button>
+                        <button
+                            onClick={() => {
+                                if (!formData.start_time || !formData.end_time) {
+                                    alert('Data e Orario sono obbligatori');
+                                    return;
+                                }
 
-                            // Sanitize data: remove joined objects that are not columns in appointments table
-                            const { client, artist, ...dataToSave } = formData as any;
+                                // Sanitize data: remove joined objects that are not columns in appointments table
+                                const { client, artist, ...dataToSave } = formData as any;
 
-                            // Ensure studio_id is set
-                            if (!dataToSave.studio_id && user?.studio_id) {
-                                dataToSave.studio_id = user.studio_id;
-                            }
+                                // Ensure studio_id is set
+                                if (!dataToSave.studio_id && user?.studio_id) {
+                                    dataToSave.studio_id = user.studio_id;
+                                }
 
-                            onSave(dataToSave);
-                        }}
-                        className="flex items-center gap-2 bg-accent hover:bg-accent-hover text-white px-6 py-2.5 rounded-lg font-medium transition-colors shadow-lg shadow-accent/20"
-                    >
-                        <Save size={18} />
-                        <span>Salva</span>
-                    </button>
+                                onSave(dataToSave);
+                            }}
+                            className="bg-accent hover:bg-accent-hover text-white px-6 py-3 rounded-xl font-medium transition-all shadow-lg shadow-accent/20 flex items-center gap-2"
+                        >
+                            <Save size={20} />
+                            <span>Salva</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </>
