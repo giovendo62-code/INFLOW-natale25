@@ -47,6 +47,9 @@ export const WaitlistForm: React.FC = () => {
 
     const [privacyAccepted, setPrivacyAccepted] = useState(false);
 
+    const [debugLogs, setDebugLogs] = useState<string[]>([]);
+    const addLog = (msg: string) => setDebugLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${msg}`]);
+
     const handleContinue = async (e: React.FormEvent) => {
         e.preventDefault();
         // Basic validation
@@ -62,33 +65,38 @@ export const WaitlistForm: React.FC = () => {
 
         setError(null);
         setLoading(true);
-        console.log("Starting submission for studio:", studioId);
-        alert(`Debug: Starting submission. StudioID: ${studioId}`);
+        addLog(`Starting submission. StudioID: ${studioId}`);
 
         try {
+            if (!api.clients?.getByContact) {
+                addLog("CRITICAL: api.clients.getByContact is undefined!");
+                console.error("API structure:", api);
+                throw new Error("API method missing: api.clients.getByContact");
+            }
+
+            addLog(`Checking contact: ${formData.email}`);
+
             // Check if client exists using secure RPC
-            console.log("Checking contact:", formData.email, formData.phone);
-            alert(`Debug: Checking contact: ${formData.email}`);
             const existingClientId = await api.clients.getByContact(
                 formData.email,
                 formData.phone,
                 studioId || 'studio-1'
             );
-            console.log("Existing Client ID:", existingClientId);
-            alert(`Debug: Result of Client Check: ${existingClientId || 'Not Found'}`);
+
+            addLog(`Result of Client Check: ${existingClientId || 'Not Found'}`);
 
             if (existingClientId) {
                 // Client exists, skip consent
-                alert("Debug: Client exists, adding to waitlist...");
+                addLog("Client exists, adding to waitlist...");
                 await submitWaitlistRequest(null, existingClientId);
             } else {
                 // New client, proceed directly (Skip consent signature)
-                alert("Debug: New client, creating record...");
+                addLog("New client, creating record...");
                 await submitWaitlistRequest(null, 'new');
             }
         } catch (err: any) {
             console.error("Submission Error:", err);
-            alert(`Errore Step 1: ${err.message || JSON.stringify(err)}`);
+            addLog(`Errore Step 1: ${err.message || JSON.stringify(err)}`);
             setError(`Si è verificato un errore: ${err.message}`);
         } finally {
             setLoading(false);
@@ -119,7 +127,7 @@ export const WaitlistForm: React.FC = () => {
 
         if (clientIdToUse === 'new') {
             try {
-                alert("Debug: Creating new client in DB...");
+                addLog("Creating new client in DB...");
                 const newClient = await api.clients.create({
                     full_name: formData.full_name || 'Nuovo Cliente',
                     email: formData.email,
@@ -134,16 +142,16 @@ export const WaitlistForm: React.FC = () => {
                     images: []
                 });
                 clientIdToUse = newClient.id;
-                alert(`Debug: Client Created Successfully: ${newClient.id}`);
+                addLog(`Client Created Successfully: ${newClient.id}`);
             } catch (err: any) {
                 console.error("Error creating new client:", err);
-                alert(`Errore Creazione Cliente: ${err.message || JSON.stringify(err)}`);
+                addLog(`Errore Creazione Cliente: ${err.message || JSON.stringify(err)}`);
                 throw new Error(`Failed to create new client: ${err.message}`);
             }
         }
 
         try {
-            alert("Debug: Final Step - Adding to waitlist table...");
+            addLog("Final Step - Adding to waitlist table...");
             await api.waitlist.addToWaitlist({
                 studio_id: studioId || 'studio-1',
                 client_id: clientIdToUse,
@@ -159,7 +167,7 @@ export const WaitlistForm: React.FC = () => {
             setSubmitted(true);
         } catch (err: any) {
             console.error("Error adding to waitlist:", err);
-            alert(`Errore Waitlist Insert: ${err.message || JSON.stringify(err)}`);
+            addLog(`Errore Waitlist Insert: ${err.message || JSON.stringify(err)}`);
             throw err;
         }
     };
@@ -501,6 +509,15 @@ export const WaitlistForm: React.FC = () => {
                         <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-lg flex items-center">
                             <AlertTriangle size={20} className="mr-2 flex-shrink-0" />
                             {error}
+                        </div>
+                    )}
+
+                    {debugLogs.length > 0 && (
+                        <div className="bg-black/80 text-green-400 p-4 rounded-lg font-mono text-xs overflow-x-auto max-h-40 border border-green-500/30">
+                            <strong>Debug Log:</strong>
+                            {debugLogs.map((log, i) => (
+                                <div key={i}>{log}</div>
+                            ))}
                         </div>
                     )}
 
