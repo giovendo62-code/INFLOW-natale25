@@ -1,23 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api } from '../../services/api';
-import { Send, CheckCircle, AlertTriangle, PenTool, ArrowLeft, X } from 'lucide-react';
+import { Send, CheckCircle, AlertTriangle, X } from 'lucide-react';
 import clsx from 'clsx';
-import { DigitalSignature } from '../consents/components/DigitalSignature';
 import { DragDropUpload } from '../../components/DragDropUpload';
-import type { ConsentTemplate } from '../../services/types';
-import { generateConsentPDF } from '../../utils/pdfGenerator';
 
 export const PublicClientForm: React.FC = () => {
     const { studioId } = useParams<{ studioId: string }>();
-    const [step, setStep] = useState<'DETAILS' | 'CONSENT'>('DETAILS');
     const [submitted, setSubmitted] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [template, setTemplate] = useState<ConsentTemplate | null>(null);
 
     const [formData, setFormData] = useState({
-        full_name: '',
+        first_name: '',
+        last_name: '',
         email: '',
         phone: '',
         fiscal_code: '',
@@ -26,21 +22,11 @@ export const PublicClientForm: React.FC = () => {
         zip_code: '',
         styles: [] as string[],
         description: '',
-        images: [] as string[]
+        images: [] as string[],
+        privacy_consent: false
     });
 
-    useEffect(() => {
-        // Fetch consent template on mount
-        const loadTemplate = async () => {
-            try {
-                const t = await api.consents.getTemplate(studioId || 'studio-1');
-                setTemplate(t);
-            } catch (err) {
-                console.error("Error loading template:", err);
-            }
-        };
-        loadTemplate();
-    }, [studioId]);
+
 
     const STYLES = ['Realistico', 'Minimal', 'Old School', 'Blackwork', 'Lettering', 'Colorato', 'Geometrico'];
 
@@ -48,7 +34,7 @@ export const PublicClientForm: React.FC = () => {
         e.preventDefault();
 
         // Comprehensive validation
-        if (!formData.full_name || !formData.email || !formData.phone ||
+        if (!formData.first_name || !formData.last_name || !formData.email || !formData.phone ||
             !formData.fiscal_code || !formData.address || !formData.city || !formData.zip_code) {
             setError('Compila tutti i campi obbligatori nei Dati Personali');
             return;
@@ -59,8 +45,8 @@ export const PublicClientForm: React.FC = () => {
             return;
         }
 
-        if (!formData.description.trim()) {
-            setError('Inserisci una descrizione o delle note');
+        if (!formData.privacy_consent) {
+            setError('Devi accettare il trattamento dei dati personali e della privacy per procedere');
             return;
         }
 
@@ -78,14 +64,14 @@ export const PublicClientForm: React.FC = () => {
             if (existingClientId) {
                 // Client exists
                 setError('Sei già registrato come cliente!');
+                setLoading(false);
             } else {
-                // New client, require consent
-                setStep('CONSENT');
+                // New client, proceed to registration immediately
+                await submitRegistration();
             }
         } catch (err) {
             console.error(err);
             setError('Si è verificato un errore. Riprova.');
-        } finally {
             setLoading(false);
         }
     };
@@ -109,14 +95,12 @@ export const PublicClientForm: React.FC = () => {
     };
 
 
-    const submitRegistration = async (signatureData: string) => {
+    const submitRegistration = async () => {
         try {
             // 1. Create client first
-            let clientIdToUse = '';
-
             if (api.clients.createPublic) {
-                const newClient = await api.clients.createPublic({
-                    full_name: formData.full_name || 'Nuovo Cliente',
+                await api.clients.createPublic({
+                    full_name: `${formData.first_name.trim()} ${formData.last_name.trim()}`,
                     email: formData.email,
                     phone: formData.phone || '',
                     studio_id: studioId || 'studio-1',
@@ -128,10 +112,9 @@ export const PublicClientForm: React.FC = () => {
                     preferred_styles: formData.styles || [],
                     images: []
                 });
-                clientIdToUse = newClient.id;
             } else {
-                const newClient = await api.clients.create({
-                    full_name: formData.full_name || 'Nuovo Cliente',
+                await api.clients.create({
+                    full_name: `${formData.first_name.trim()} ${formData.last_name.trim()}`,
                     email: formData.email,
                     phone: formData.phone || '',
                     studio_id: studioId || 'studio-1',
@@ -143,55 +126,10 @@ export const PublicClientForm: React.FC = () => {
                     preferred_styles: formData.styles || [],
                     images: []
                 });
-                clientIdToUse = newClient.id;
             }
 
-            // 2. If consent step active, save signature and generate PDF
-            if (step === 'CONSENT' && template && signatureData && clientIdToUse) {
-                try {
-                    const consent = await api.consents.signConsent(
-                        clientIdToUse,
-                        template.id,
-                        signatureData,
-                        template.version,
-                        'client'
-                    );
-
-                    // Fetch studio for real data in PDF
-                    const studio = await api.settings.getStudio(studioId || 'studio-1');
-
-                    // Need full client object for PDF
-                    const fullClient = {
-                        id: clientIdToUse,
-                        full_name: formData.full_name,
-                        email: formData.email,
-                        phone: formData.phone,
-                        studio_id: studioId || 'studio-1',
-                        fiscal_code: formData.fiscal_code,
-                        address: formData.address,
-                        city: formData.city,
-                        zip_code: formData.zip_code,
-                        preferred_styles: formData.styles,
-                        whatsapp_broadcast_opt_in: false,
-                        images: [],
-                        created_at: new Date().toISOString(),
-                        // Add other mock fields
-                        last_appointment: null,
-                        total_spent: 0,
-                        notes: '',
-                        tags: [],
-                        consent_status: 'SIGNED' as any
-                    };
-
-                    // 3. Generate and download PDF
-                    await generateConsentPDF(fullClient as any, template, consent, studio);
-
-                } catch (consentError) {
-                    console.error("Error saving consent:", consentError);
-                    // We don't block success, but we should log it. 
-                    // Maybe show a warning? For now we proceed as client is created.
-                }
-            }
+            // 2. Consent step removed for public form (will be handled by studio)
+            // if (step === 'CONSENT' && template && signatureData && clientIdToUse) { ... }
 
             setSubmitted(true);
         } catch (err) {
@@ -200,18 +138,7 @@ export const PublicClientForm: React.FC = () => {
         }
     };
 
-    const handleSignatureSave = async (signatureData: string) => {
-        setError(null);
-        setLoading(true);
 
-        try {
-            await submitRegistration(signatureData);
-        } catch (err) {
-            console.error(err);
-            setError('Si è verificato un errore. Riprova più tardi.');
-            setLoading(false);
-        }
-    };
 
     const toggleStyle = (style: string) => {
         setFormData(prev => ({
@@ -238,66 +165,7 @@ export const PublicClientForm: React.FC = () => {
         );
     }
 
-    // Step 2: Consent & Signature (Reuse logic)
-    if (step === 'CONSENT') {
-        return (
-            <div className="min-h-screen bg-bg-primary py-12 px-4 sm:px-6 lg:px-8">
-                <div className="max-w-4xl mx-auto space-y-6">
-                    <button
-                        onClick={() => setStep('DETAILS')}
-                        className="flex items-center text-text-muted hover:text-white"
-                    >
-                        <ArrowLeft size={20} className="mr-2" />
-                        Torna ai Dati
-                    </button>
 
-                    <div className="bg-bg-secondary p-8 rounded-2xl border border-border shadow-xl">
-                        <h2 className="text-2xl font-bold text-white mb-6">Consenso Informato</h2>
-
-                        {template ? (
-                            <div className="space-y-8">
-                                <div className="bg-white text-black p-6 rounded-lg prose max-w-none max-h-[400px] overflow-y-auto">
-                                    <div dangerouslySetInnerHTML={{
-                                        __html: template.content
-                                            .replace('{{nome}}', formData.full_name.split(' ')[0] || '')
-                                            .replace('{{cognome}}', formData.full_name.split(' ').slice(1).join(' ') || '')
-                                            .replace('{{data_nascita}}', '---')
-                                            .replace('{{codice_fiscale}}', formData.fiscal_code || '---')
-                                    }} />
-                                </div>
-
-                                <div>
-                                    <h3 className="text-white text-lg font-semibold mb-4 flex items-center gap-2">
-                                        <PenTool size={20} className="text-accent" />
-                                        Firma qui sotto per accettare
-                                    </h3>
-                                    {loading ? (
-                                        <div className="text-center py-8 text-text-muted">Caricamento in corso...</div>
-                                    ) : (
-                                        <DigitalSignature
-                                            onSave={handleSignatureSave}
-                                            onClear={() => { }}
-                                        />
-                                    )}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="text-center py-8 text-text-muted">
-                                Impossibile caricare il consenso. Contatta lo studio.
-                            </div>
-                        )}
-
-                        {error && (
-                            <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-lg flex items-center mt-4">
-                                <AlertTriangle size={20} className="mr-2 flex-shrink-0" />
-                                {error}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="min-h-screen bg-bg-primary py-12 px-4 sm:px-6 lg:px-8">
@@ -312,15 +180,26 @@ export const PublicClientForm: React.FC = () => {
                     <div className="space-y-4">
                         <h3 className="text-lg font-semibold text-white border-b border-border pb-2">Dati Personali</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-text-muted mb-1">Nome Completo *</label>
+                            <div>
+                                <label className="block text-sm font-medium text-text-muted mb-1">Nome *</label>
                                 <input
                                     required
                                     type="text"
-                                    value={formData.full_name}
-                                    onChange={e => setFormData({ ...formData, full_name: e.target.value })}
+                                    value={formData.first_name}
+                                    onChange={e => setFormData({ ...formData, first_name: e.target.value })}
                                     className="w-full bg-bg-tertiary border border-border rounded-lg px-4 py-3 text-white focus:border-accent focus:outline-none"
-                                    placeholder="Mario Rossi"
+                                    placeholder="Mario"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-text-muted mb-1">Cognome *</label>
+                                <input
+                                    required
+                                    type="text"
+                                    value={formData.last_name}
+                                    onChange={e => setFormData({ ...formData, last_name: e.target.value })}
+                                    className="w-full bg-bg-tertiary border border-border rounded-lg px-4 py-3 text-white focus:border-accent focus:outline-none"
+                                    placeholder="Rossi"
                                 />
                             </div>
                             <div>
@@ -421,9 +300,8 @@ export const PublicClientForm: React.FC = () => {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-text-muted mb-1">Note / Idee *</label>
+                            <label className="block text-sm font-medium text-text-muted mb-1">Note / Idee (Opzionale)</label>
                             <textarea
-                                required
                                 value={formData.description}
                                 onChange={e => setFormData({ ...formData, description: e.target.value })}
                                 className="w-full bg-bg-tertiary border border-border rounded-lg px-4 py-3 text-white focus:border-accent focus:outline-none min-h-[100px]"
@@ -458,6 +336,28 @@ export const PublicClientForm: React.FC = () => {
                         </div>
                     </div>
 
+
+                    <div className="bg-bg-tertiary p-4 rounded-xl border border-border/50">
+                        <label className="flex items-start gap-3 cursor-pointer group">
+                            <div className="relative flex items-center mt-1">
+                                <input
+                                    type="checkbox"
+                                    required
+                                    checked={formData.privacy_consent}
+                                    onChange={e => setFormData({ ...formData, privacy_consent: e.target.checked })}
+                                    className="peer h-5 w-5 cursor-pointer appearance-none rounded-md border-2 border-border bg-bg-secondary checked:border-accent checked:bg-accent transition-all"
+                                />
+                                <CheckCircle className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100 pointer-events-none" size={14} />
+                            </div>
+                            <div className="text-sm text-text-muted group-hover:text-text-secondary transition-colors">
+                                <span className="font-bold text-white">Consenso Privacy e Trattamento Dati *</span>
+                                <p className="mt-1 leading-relaxed">
+                                    Dichiaro di aver letto e compreso l'informativa sulla privacy e acconsento al trattamento dei miei dati personali per le finalità legate alla gestione del servizio e agli obblighi di legge.
+                                </p>
+                            </div>
+                        </label>
+                    </div>
+
                     {error && (
                         <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-lg flex items-center">
                             <AlertTriangle size={20} className="mr-2 flex-shrink-0" />
@@ -478,7 +378,7 @@ export const PublicClientForm: React.FC = () => {
                         )}
                     </button>
                 </form>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };

@@ -1,8 +1,9 @@
 
 import { useState, useEffect } from 'react';
-import { X, FileSpreadsheet, Download, AlertCircle, Check, Loader2 } from 'lucide-react';
+import { X, FileSpreadsheet, Download, AlertCircle, Check, Loader2, RefreshCw } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { useAuth } from '../../../features/auth/AuthContext';
+import { api } from '../../../services/api';
 
 interface GoogleSheetsSyncModalProps {
     isOpen: boolean;
@@ -34,12 +35,27 @@ export function GoogleSheetsSyncModal({ isOpen, onClose, onSyncSuccess, initialT
         fiscal_code: '',
         address: '',
         city: '',
-        zip_code: ''
+
+        zip_code: '',
+        preferred_styles: ''
     });
     const [importStats, setImportStats] = useState({ total: 0, success: 0, failed: 0 });
 
     // Export-specific State
     const [exportStats, setExportStats] = useState({ total: 0 });
+
+    // Config State
+    const [isDefault, setIsDefault] = useState(false);
+    const [studioConfig, setStudioConfig] = useState<any>(null);
+
+    // Fetch Studio Config on Mount
+    useEffect(() => {
+        if (user?.studio_id) {
+            api.settings.getStudio(user.studio_id).then(studio => {
+                if (studio) setStudioConfig(studio);
+            });
+        }
+    }, [user?.studio_id]);
 
     // Reset when opening or switching tabs
     useEffect(() => {
@@ -47,7 +63,7 @@ export function GoogleSheetsSyncModal({ isOpen, onClose, onSyncSuccess, initialT
             setStep(1);
             setMapping({
                 full_name: '', surname: '', email: '', phone: '', notes: '',
-                fiscal_code: '', address: '', city: '', zip_code: ''
+                fiscal_code: '', address: '', city: '', zip_code: '', preferred_styles: ''
             });
             fetchSpreadsheets();
             setActiveTab(initialTab);
@@ -97,7 +113,7 @@ export function GoogleSheetsSyncModal({ isOpen, onClose, onSyncSuccess, initialT
             setIsLoading(true);
             try {
                 const { data, error } = await supabase.functions.invoke('fetch-google-sheets', {
-                    body: { action: 'get_sheet_data', spreadsheetId: selectedFile, sheetName: sheetName }
+                    body: { action: 'get_sheet_data', spreadsheetId: selectedFile!, sheetName: sheetName }
                 });
                 if (error) throw error;
                 if (data?.error) throw new Error(data.error);
@@ -125,7 +141,7 @@ export function GoogleSheetsSyncModal({ isOpen, onClose, onSyncSuccess, initialT
         setStep(4);
         try {
             const { data, error } = await supabase.functions.invoke('fetch-google-sheets', {
-                body: { action: 'get_sheet_data', spreadsheetId: selectedFile, sheetName: selectedSheet }
+                body: { action: 'get_sheet_data', spreadsheetId: selectedFile!, sheetName: selectedSheet! }
             });
             if (error) throw error;
             if (data?.error) throw new Error(data.error);
@@ -160,6 +176,11 @@ export function GoogleSheetsSyncModal({ isOpen, onClose, onSyncSuccess, initialT
                     clientData.city = getVal('city');
                     clientData.zip_code = getVal('zip_code');
 
+                    const stylesRaw = getVal('preferred_styles');
+                    if (stylesRaw) {
+                        clientData.preferred_styles = stylesRaw.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+                    }
+
                     if (!clientData.full_name) {
                         failCount++;
                         continue;
@@ -183,7 +204,85 @@ export function GoogleSheetsSyncModal({ isOpen, onClose, onSyncSuccess, initialT
         }
     };
 
-    const [isDefault, setIsDefault] = useState(false);
+    // Configuration State
+    const [isConfiguring, setIsConfiguring] = useState(false);
+    const [sheetHeaders, setSheetHeaders] = useState<string[]>([]);
+    const [columnMapping, setColumnMapping] = useState<Record<string, string>>({}); // Header -> CRM Field
+
+    // Load saved mapping
+    useEffect(() => {
+        if (studioConfig?.google_sheets_config?.mapping) {
+            setColumnMapping(studioConfig.google_sheets_config.mapping);
+            if (activeTab === 'export') {
+                setIsDefault(true); // Assume if mapping exists, we want to use it
+            }
+        }
+    }, [studioConfig, activeTab]);
+
+    const fetchSheetHeaders = async () => {
+        if (!selectedFile || !selectedSheet) return;
+        setIsLoading(true);
+        try {
+            const { data, error } = await supabase.functions.invoke('fetch-google-sheets', {
+                body: { action: 'get_sheet_data', spreadsheetId: selectedFile!, sheetName: selectedSheet! }
+            });
+
+            if (error) throw error;
+            if (data?.error) throw new Error(data.error);
+
+            if (data && data.length > 0) {
+                const headers = data[0];
+                setSheetHeaders(headers); // First row is headers
+
+                // Auto-map if possible (simple loose match)
+                const newMapping: Record<string, string> = { ...columnMapping };
+                headers.forEach((header: string) => {
+                    const h = header.toLowerCase();
+                    if (!newMapping[header]) {
+                        if (h.includes('nome')) newMapping[header] = 'first_name';
+                        if (h.includes('cognome')) newMapping[header] = 'last_name';
+                        if (h.includes('email')) newMapping[header] = 'email';
+                        if (h.includes('tel') || h.includes('cell')) newMapping[header] = 'phone';
+                        if (h.includes('fisc')) newMapping[header] = 'fiscal_code';
+                        if (h.includes('indirizzo')) newMapping[header] = 'address';
+                        if (h.includes('citt') || h.includes('city')) newMapping[header] = 'city';
+                        if (h.includes('cap')) newMapping[header] = 'zip_code';
+                        if (h.includes('hot') || h.includes('not')) newMapping[header] = 'notes';
+                        if (h.includes('stil') || h.includes('style') || h.includes('tatuagg')) newMapping[header] = 'preferred_styles';
+                        if (h.includes('data') || h.includes('creat')) newMapping[header] = 'created_at';
+                    }
+                });
+                setColumnMapping(newMapping);
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Errore nel recupero delle intestazioni. Assicurati che il foglio non sia vuoto.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const saveMapping = async () => {
+        try {
+            setIsLoading(true);
+            await api.settings.updateStudio(user!.studio_id!, {
+                google_sheets_config: {
+                    ...studioConfig?.google_sheets_config,
+                    mapping: columnMapping,
+                    spreadsheet_id: selectedFile!,
+                    sheet_name: selectedSheet!,
+                    auto_sync_enabled: true
+                }
+            });
+            setIsConfiguring(false);
+            alert("Mappatura salvata! La sincronizzazione automatica userà questa configurazione.");
+        } catch (error) {
+            console.error(error);
+            alert("Errore nel salvataggio.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     const handleExport = async () => {
         setIsLoading(true);
@@ -197,28 +296,42 @@ export function GoogleSheetsSyncModal({ isOpen, onClose, onSyncSuccess, initialT
 
             if (dpError) throw dpError;
 
-            // 2. Format Data
-            const exportHeaders = ['Nome', 'Email', 'Telefono', 'Codice Fiscale', 'Indirizzo', 'Città', 'CAP', 'Note', 'Registrato Il'];
-            const rows = clients.map((c: any) => [
-                c.full_name || '',
-                c.email || '',
-                c.phone || '',
-                c.fiscal_code || '',
-                c.address || '',
-                c.city || '',
-                c.zip_code || '',
-                c.notes || '',
-                c.created_at ? new Date(c.created_at).toLocaleDateString() : ''
-            ]);
+            // 2. Format Data based on Mapping
+            const hasMapping = Object.keys(columnMapping).length > 0;
+            let headersToExport: string[] = [];
+            let fieldsToExport: string[] = [];
 
-            const values = [exportHeaders, ...rows];
+            if (hasMapping) {
+                // Use defined mapping order
+                headersToExport = Object.keys(columnMapping);
+                fieldsToExport = Object.values(columnMapping);
+            } else {
+                // Default fallback
+                headersToExport = ['Nome', 'Cognome', 'Email', 'Telefono', 'Codice Fiscale', 'Indirizzo', 'Città', 'CAP', 'Stili', 'Note', 'Registrato Il'];
+                fieldsToExport = ['first_name', 'last_name', 'email', 'phone', 'fiscal_code', 'address', 'city', 'zip_code', 'preferred_styles', 'notes', 'created_at'];
+            }
+
+            const rows = clients.map((c: any) => {
+                return fieldsToExport.map(field => {
+                    if (field === 'first_name') return (c.full_name || '').split(' ')[0] || '';
+                    if (field === 'last_name') {
+                        const parts = (c.full_name || '').split(' ');
+                        return parts.length > 1 ? parts.slice(1).join(' ') : '';
+                    }
+                    if (field === 'created_at') return c.created_at ? new Date(c.created_at).toLocaleDateString() : '';
+                    if (field === 'preferred_styles') return Array.isArray(c.preferred_styles) ? c.preferred_styles.join(', ') : '';
+                    return (c as any)[field] || '';
+                });
+            });
+
+            const values = [headersToExport, ...rows];
 
             // 3. Call Edge Function
             const { data, error } = await supabase.functions.invoke('fetch-google-sheets', {
                 body: {
                     action: 'export_data',
-                    spreadsheetId: selectedFile,
-                    sheetName: selectedSheet,
+                    spreadsheetId: selectedFile!,
+                    sheetName: selectedSheet!,
                     values: values
                 }
             });
@@ -226,20 +339,16 @@ export function GoogleSheetsSyncModal({ isOpen, onClose, onSyncSuccess, initialT
             if (error) throw error;
             if (data?.error) throw new Error(data.error);
 
-            // 4. Save as default if requested
-            if (isDefault && user?.studio_id) {
-                const config = {
-                    spreadsheet_id: selectedFile,
-                    sheet_name: selectedSheet,
-                    auto_sync_enabled: true
-                };
-
-                const { error: studioError } = await supabase
-                    .from('studios')
-                    .update({ google_sheets_config: config })
-                    .eq('id', user.studio_id);
-
-                if (studioError) console.error('Failed to save default config:', studioError);
+            // 4. Save as default if requested or if we are using the mapping
+            if (isDefault || hasMapping) {
+                await api.settings.updateStudio(user!.studio_id!, {
+                    google_sheets_config: {
+                        spreadsheet_id: selectedFile!,
+                        sheet_name: selectedSheet!,
+                        auto_sync_enabled: true,
+                        mapping: columnMapping
+                    }
+                });
             }
 
             setExportStats({ total: rows.length });
@@ -353,13 +462,27 @@ export function GoogleSheetsSyncModal({ isOpen, onClose, onSyncSuccess, initialT
                             </div>
 
                             <div className="space-y-4 grid grid-cols-2 gap-4">
-                                {['full_name', 'email', 'phone', 'notes', 'fiscal_code', 'address', 'city', 'zip_code'].map(field => (
-                                    <div key={field}>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 capitalize">{field.replace('_', ' ')}</label>
+                                {[
+                                    { key: 'full_name', label: 'Nome (o Nome Completo)' },
+                                    { key: 'surname', label: 'Cognome' },
+                                    { key: 'email', label: 'Email' },
+                                    { key: 'phone', label: 'Telefono' },
+                                    { key: 'fiscal_code', label: 'Codice Fiscale' },
+                                    { key: 'address', label: 'Indirizzo' },
+                                    { key: 'city', label: 'Città' },
+                                    { key: 'zip_code', label: 'CAP' },
+                                    { key: 'zip_code', label: 'CAP' },
+                                    { key: 'preferred_styles', label: 'Stili Preferiti (separati da virgola)' },
+                                    { key: 'notes', label: 'Note' }
+                                ].map((field) => (
+                                    <div key={field.key}>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            {field.label}
+                                        </label>
                                         <select
                                             className="w-full p-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
-                                            value={(mapping as any)[field]}
-                                            onChange={(e) => setMapping({ ...mapping, [field]: e.target.value })}
+                                            value={(mapping as any)[field.key]}
+                                            onChange={(e) => setMapping({ ...mapping, [field.key]: e.target.value })}
                                         >
                                             <option value="">Seleziona...</option>
                                             {headers.map(h => <option key={h} value={h}>{h}</option>)}
@@ -380,13 +503,82 @@ export function GoogleSheetsSyncModal({ isOpen, onClose, onSyncSuccess, initialT
 
                             <h3 className="text-xl font-bold text-gray-900 dark:text-white">Conferma Esportazione</h3>
                             <p className="text-gray-600 dark:text-gray-400 max-w-sm mx-auto mt-2">
-                                Stai per esportare tutti i clienti. <br />
-                                <span className="font-bold text-red-500">ATTENZIONE: Il contenuto del foglio "{selectedSheet}" verrà sovrascritto.</span>
+                                Stai per esportare tutti i clienti nel foglio <b>{selectedSheet}</b>. <br />
+                                <span className="text-red-500 font-bold text-xs mt-2 block">ATTENZIONE: Il contenuto verrà sovrascritto.</span>
                             </p>
 
+                            {/* Mapping Configuration UI */}
+                            <div className="mt-6 text-left max-w-md mx-auto">
+                                <button
+                                    onClick={() => { setIsConfiguring(!isConfiguring); if (!isConfiguring && sheetHeaders.length === 0) fetchSheetHeaders(); }}
+                                    className="text-sm text-blue-600 hover:text-blue-500 font-medium flex items-center gap-2 mx-auto mb-2"
+                                >
+                                    {isConfiguring ? 'Chiudi Configurazione' : 'Opzioni Avanzate: Configura Colonne'}
+                                </button>
+
+                                {isConfiguring && (
+                                    <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg border border-gray-200 dark:border-gray-700 animate-in fade-in zoom-in-95 duration-200">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h4 className="font-bold text-sm">Mappatura Colonne</h4>
+                                            {sheetHeaders.length === 0 && (
+                                                <button onClick={fetchSheetHeaders} disabled={isLoading} className="text-xs bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded">
+                                                    Leggi Intestazioni
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {sheetHeaders.length > 0 ? (
+                                            <div className="space-y-2 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                                                {sheetHeaders.map(header => (
+                                                    <div key={header} className="flex items-center justify-between gap-2 text-sm">
+                                                        <span className="truncate w-1/3 text-gray-600 dark:text-gray-400" title={header}>{header}</span>
+                                                        <span className="text-gray-400">→</span>
+                                                        <select
+                                                            className="flex-1 p-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-xs"
+                                                            value={columnMapping[header] || ''}
+                                                            onChange={(e) => setColumnMapping({ ...columnMapping, [header]: e.target.value })}
+                                                        >
+                                                            <option value="">-- Ignora --</option>
+                                                            <option value="first_name">Nome</option>
+                                                            <option value="last_name">Cognome</option>
+                                                            <option value="email">Email</option>
+                                                            <option value="phone">Telefono</option>
+                                                            <option value="fiscal_code">Codice Fiscale</option>
+                                                            <option value="address">Indirizzo</option>
+                                                            <option value="city">Città</option>
+                                                            <option value="zip_code">CAP</option>
+                                                            <option value="zip_code">CAP</option>
+                                                            <option value="preferred_styles">Stili Preferiti</option>
+                                                            <option value="notes">Note</option>
+                                                            <option value="created_at">Data Reg.</option>
+                                                        </select>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-center text-gray-500 py-4">Clicca "Leggi Intestazioni" per caricare le colonne dal tuo foglio.</p>
+                                        )}
+
+                                        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                            <button
+                                                onClick={saveMapping}
+                                                disabled={isLoading}
+                                                className="w-full py-2 bg-blue-600/10 text-blue-600 hover:bg-blue-600/20 rounded font-bold text-xs transition-colors"
+                                            >
+                                                Salva come Predefinito
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
                             <div className="flex justify-center gap-4 mt-8">
-                                <button onClick={() => handleExport()} className="px-8 py-3 bg-accent text-white font-bold rounded-xl hover:bg-accent-hover transition-transform active:scale-95 shadow-lg shadow-accent/20">
-                                    Conferma e Sovrascrivi
+                                <button
+                                    onClick={() => handleExport()}
+                                    className="px-8 py-3 bg-accent text-white font-bold rounded-xl hover:bg-accent-hover transition-transform active:scale-95 shadow-lg shadow-accent/20 flex items-center gap-2"
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? <RefreshCw className="w-5 h-5 animate-spin" /> : 'Conferma e Sovrascrivi'}
                                 </button>
                             </div>
 

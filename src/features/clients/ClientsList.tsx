@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Search, Plus, Mail, Phone, MessageCircle, Megaphone, QrCode, X, Copy, Check, Star, Filter, ExternalLink } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Search, Plus, Mail, Phone, MessageCircle, Megaphone, QrCode, X, Copy, Check, Star, Filter, ExternalLink, Trash2, CheckSquare, Square } from 'lucide-react';
 import { api } from '../../services/api';
 import type { Client } from '../../services/types';
 import { useNavigate } from 'react-router-dom';
@@ -8,10 +8,22 @@ import { useAuth } from '../auth/AuthContext';
 import { GoogleSheetsSyncModal } from './components/GoogleSheetsSyncModal';
 import { ReviewRequestModal } from '../../components/ReviewRequestModal';
 
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+
 export const ClientsList: React.FC = () => {
-    const [clients, setClients] = useState<Client[]>([]);
+    const queryClient = useQueryClient();
+    const { user } = useAuth();
+
+    // React Query for data fetching
+    const { data: clients = [], isLoading: loading } = useQuery({
+        queryKey: ['clients', user?.studio_id],
+        queryFn: () => api.clients.list(undefined, user?.studio_id),
+        enabled: !!user?.studio_id,
+        staleTime: 1000 * 60 * 5, // 5 minutes fresh
+    });
+
     const [search, setSearch] = useState('');
-    const [loading, setLoading] = useState(true);
+    // Removed local clients state and loading state as they are handled by React Query
     const [showQR, setShowQR] = useState(false);
     const [showImport, setShowImport] = useState(false);
     const [modalTab, setModalTab] = useState<'import' | 'export'>('import');
@@ -27,27 +39,18 @@ export const ClientsList: React.FC = () => {
     // Review Modal State
     const [reviewModalData, setReviewModalData] = useState<{ isOpen: boolean; clientName: string; clientPhone?: string; studioId?: string }>({ isOpen: false, clientName: '' });
 
+    // Bulk Selection State
+    const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
+    const [isDeleting, setIsDeleting] = useState(false);
+
     const navigate = useNavigate();
-    const { user } = useAuth();
+    // user already deconstructed above
     const studioId = user?.studio_id;
     // Use configured site URL (production) or fallback to current origin (dev/preview)
     const baseUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
     const registrationLink = `${baseUrl}/public/register/${studioId}`;
 
-    useEffect(() => {
-        loadClients();
-    }, []);
-
-    const loadClients = async () => {
-        setLoading(true);
-        try {
-            // Pass user.studio_id to filter clients by studio
-            const data = await api.clients.list(undefined, user?.studio_id);
-            setClients(data);
-        } finally {
-            setLoading(false);
-        }
-    };
+    // Data loading handled by useQuery
 
     // Derived State: Unique Styles
     const uniqueStyles = useMemo(() => {
@@ -101,22 +104,72 @@ export const ClientsList: React.FC = () => {
     const handleToggleBroadcast = async (e: React.MouseEvent, client: Client) => {
         e.stopPropagation();
 
-        // Optimistic update
         const newStatus = !client.whatsapp_broadcast_opt_in;
-        setClients(prev => prev.map(c =>
-            c.id === client.id ? { ...c, whatsapp_broadcast_opt_in: newStatus } : c
-        ));
+
+        // Optimistic Update
+        queryClient.setQueryData(['clients', user?.studio_id], (old: Client[] | undefined) => {
+            return old ? old.map(c => c.id === client.id ? { ...c, whatsapp_broadcast_opt_in: newStatus } : c) : [];
+        });
 
         try {
             await api.clients.update(client.id, {
                 whatsapp_broadcast_opt_in: newStatus
             });
+            // Optional: Invalidate to refetch fresh data
+            // queryClient.invalidateQueries({ queryKey: ['clients', user?.studio_id] });
         } catch (error) {
             console.error('Error toggling broadcast status:', error);
-            // Revert on error
-            setClients(prev => prev.map(c =>
-                c.id === client.id ? { ...c, whatsapp_broadcast_opt_in: !newStatus } : c
-            ));
+            // Revert
+            queryClient.setQueryData(['clients', user?.studio_id], (old: Client[] | undefined) => {
+                return old ? old.map(c => c.id === client.id ? { ...c, whatsapp_broadcast_opt_in: !newStatus } : c) : [];
+            });
+        }
+    };
+
+
+    // Bulk Actions Handlers
+    const handleSelectAll = () => {
+        if (selectedClients.size === filteredClients.length) {
+            setSelectedClients(new Set()); // Deselect all
+        } else {
+            setSelectedClients(new Set(filteredClients.map(c => c.id))); // Select all filtered
+        }
+    };
+
+    const handleToggleSelect = (e: React.MouseEvent, clientId: string) => {
+        e.stopPropagation();
+        const newSelected = new Set(selectedClients);
+        if (newSelected.has(clientId)) {
+            newSelected.delete(clientId);
+        } else {
+            newSelected.add(clientId);
+        }
+        setSelectedClients(newSelected);
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedClients.size === 0) return;
+
+        if (!window.confirm(`Sei sicuro di voler eliminare ${selectedClients.size} clienti selezionati? Questa azione è irreversibile.`)) {
+            return;
+        }
+
+        setIsDeleting(true);
+        try {
+            // Delete sequentially or parallel - parallel is fine for ~50 items usually
+            await Promise.all(Array.from(selectedClients).map(id => api.clients.delete(id)));
+
+            // Invalidate query
+            await queryClient.invalidateQueries({ queryKey: ['clients', user?.studio_id] });
+
+            // Clear selection
+            setSelectedClients(new Set());
+            // alert("Clienti eliminati con successo.");
+        } catch (error) {
+            console.error("Bulk delete failed:", error);
+            alert("Errore durante l'eliminazione dei clienti. Riprova.");
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -130,7 +183,7 @@ export const ClientsList: React.FC = () => {
             <div className="flex flex-col gap-4 mb-6">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-white">Clienti</h1>
+                        <h1 className="text-2xl font-bold text-white">Clienti <span className="text-lg font-normal text-text-muted">({clients.length})</span></h1>
                         <p className="text-text-muted">Gestisci il database e lo storico clienti.</p>
                     </div>
 
@@ -196,6 +249,40 @@ export const ClientsList: React.FC = () => {
                     </button>
                 </div>
 
+                {/* Bulk Actions Header - shown when items selected */}
+                {selectedClients.size > 0 && (
+                    <div className="bg-accent/10 border border-accent rounded-lg p-3 mb-4 flex items-center justify-between animate-in slide-in-from-top-2">
+                        <div className="flex items-center gap-3">
+                            <span className="font-bold text-white px-3 py-1 bg-accent rounded-md">
+                                {selectedClients.size} Selezionati
+                            </span>
+                            <span className="text-sm text-text-muted hidden md:inline">
+                                Clienti pronti per l'eliminazione
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setSelectedClients(new Set())}
+                                className="text-text-muted hover:text-white px-3 py-1 text-sm pt-1.5"
+                            >
+                                Annulla
+                            </button>
+                            <button
+                                onClick={handleBulkDelete}
+                                disabled={isDeleting}
+                                className="flex items-center gap-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-bold transition-colors shadow-lg disabled:opacity-50"
+                            >
+                                {isDeleting ? 'Eliminazione...' : (
+                                    <>
+                                        <Trash2 size={18} />
+                                        <span className="hidden md:inline">Elimina Selezionati</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Filter Panel */}
                 {showFilters && (
                     <div className="bg-bg-secondary border border-border rounded-lg p-4 grid grid-cols-1 md:grid-cols-2 gap-4 animate-in slide-in-from-top-2">
@@ -242,6 +329,18 @@ export const ClientsList: React.FC = () => {
                 <table className="w-full text-left border-collapse min-w-[800px]">
                     <thead className="bg-bg-tertiary">
                         <tr className="text-sm text-text-muted font-medium border-b border-border">
+                            <th className="px-6 py-3 w-12">
+                                <div
+                                    className="cursor-pointer"
+                                    onClick={handleSelectAll}
+                                >
+                                    {filteredClients.length > 0 && selectedClients.size === filteredClients.length ? (
+                                        <CheckSquare size={20} className="text-accent" />
+                                    ) : (
+                                        <Square size={20} className="text-text-muted" />
+                                    )}
+                                </div>
+                            </th>
                             <th className="px-6 py-3">Nome</th>
                             <th className="px-6 py-3">Contatti</th>
                             <th className="px-6 py-3">Ultima Visita</th>
@@ -260,6 +359,15 @@ export const ClientsList: React.FC = () => {
                                     onClick={() => navigate(`/clients/${client.id}`)}
                                     className="hover:bg-white/5 cursor-pointer transition-colors group"
                                 >
+                                    <td className="px-6 py-4" onClick={(e) => handleToggleSelect(e, client.id)}>
+                                        <div className="cursor-pointer">
+                                            {selectedClients.has(client.id) ? (
+                                                <CheckSquare size={20} className="text-accent" />
+                                            ) : (
+                                                <Square size={20} className="text-text-muted group-hover:text-text-secondary" />
+                                            )}
+                                        </div>
+                                    </td>
                                     <td className="px-6 py-4">
                                         <div className="font-medium text-white">{client.full_name}</div>
                                         <div className="text-xs text-text-muted">ID: {client.id}</div>
@@ -328,12 +436,24 @@ export const ClientsList: React.FC = () => {
                         <div
                             key={client.id}
                             onClick={() => navigate(`/clients/${client.id}`)}
-                            className="bg-bg-secondary border border-border rounded-xl p-4 flex flex-col gap-3"
+                            className={`bg-bg-secondary border border-border rounded-xl p-4 flex flex-col gap-3 transition-colors ${selectedClients.has(client.id) ? 'border-accent/50 bg-accent/5' : ''}`}
                         >
                             <div className="flex justify-between items-start">
-                                <div>
-                                    <div className="font-bold text-white text-lg">{client.full_name}</div>
-                                    <div className="text-xs text-text-muted">ID: {client.id}</div>
+                                <div className="flex gap-3">
+                                    <div
+                                        className="mt-1 shrink-0"
+                                        onClick={(e) => handleToggleSelect(e, client.id)}
+                                    >
+                                        {selectedClients.has(client.id) ? (
+                                            <CheckSquare size={20} className="text-accent" />
+                                        ) : (
+                                            <Square size={20} className="text-text-muted" />
+                                        )}
+                                    </div>
+                                    <div>
+                                        <div className="font-bold text-white text-lg">{client.full_name}</div>
+                                        <div className="text-xs text-text-muted">ID: {client.id}</div>
+                                    </div>
                                 </div>
                                 <div className="flex gap-2 flex-wrap justify-end">
                                     <button
@@ -437,7 +557,7 @@ export const ClientsList: React.FC = () => {
             <GoogleSheetsSyncModal
                 isOpen={showImport}
                 onClose={() => setShowImport(false)}
-                onSyncSuccess={() => loadClients()}
+                onSyncSuccess={() => queryClient.invalidateQueries({ queryKey: ['clients', user?.studio_id] })}
                 initialTab={modalTab}
             />
 

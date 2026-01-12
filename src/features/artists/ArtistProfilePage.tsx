@@ -248,7 +248,7 @@ export const ArtistProfilePage: React.FC = () => {
                         onClick={async () => {
                             if (confirm('Sei sicuro di voler eliminare questo artista? Questa azione è irreversibile.')) {
                                 try {
-                                    await api.settings.removeMember(artist.id);
+                                    await api.settings.removeMember(artist.id, user?.studio_id || 'default');
                                     navigate('/artists');
                                 } catch (err) {
                                     alert('Errore durante l\'eliminazione');

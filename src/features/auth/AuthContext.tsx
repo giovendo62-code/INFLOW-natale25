@@ -13,6 +13,7 @@ interface AuthContextType {
     signOut: () => Promise<void>;
     resetPassword: (email: string) => Promise<void>;
     updatePassword: (password: string) => Promise<void>;
+    refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,19 +27,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         checkUser();
 
         // Listen for Auth Changes (e.g. Password Recovery link clicked)
+        // Listen for Auth Changes (e.g. Password Recovery link clicked)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, _session) => {
             console.log('[AuthContext] Auth State Change:', event);
 
             if (event === 'PASSWORD_RECOVERY') {
                 console.log('[AuthContext] Password Recovery event detected. Refreshing session...');
-                // Supabase has set the session from the URL hash.
-                // We reload the user profile to ensure App knows we are logged in.
                 await checkUser();
             } else if (event === 'SIGNED_IN') {
+                // Check if we already have the user to avoid double-loading on mount
+                // But since we use a local checkUser, we should let it run if it's a real event.
+                // The issue is likely INITIAL_SESSION firing immediately after checkUser starts.
+                // We can debounce or checking if we are already loading.
+                // Simple fix for now: Trust checkUser to handle it, but ensure we don't get stuck.
                 await checkUser();
             } else if (event === 'SIGNED_OUT') {
                 setUser(null);
                 setHasStudio(false);
+                setIsLoading(false); // Ensure loading is cleared on sign out
             }
         });
 
@@ -57,10 +63,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return 'student';
     }
 
-    async function checkUser() {
+    const checkingRef = React.useRef(false);
+
+    const checkUser = React.useCallback(async () => {
+        if (checkingRef.current) {
+            console.log('AuthContext: checkUser already in progress, skipping.');
+            return;
+        }
+        checkingRef.current = true;
         console.log('AuthContext: Checking user session...');
+
         try {
-            const currentUser = await api.auth.getCurrentUser();
+            // Add a timeout race to detect hangs
+            const timeoutPromise = new Promise<null>((_, reject) =>
+                setTimeout(() => reject(new Error('getCurrentUser timed out')), 10000)
+            );
+
+            const userPromise = api.auth.getCurrentUser();
+
+            const currentUser = await Promise.race([userPromise, timeoutPromise]) as User | null;
+
             console.log('AuthContext: User found:', currentUser ? currentUser.id : 'null');
 
             if (currentUser) {
@@ -82,6 +104,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     } catch (err) {
                         console.error('AuthContext: Failed to process pending invite', err);
                     } finally {
+                        // Handle pending name update (from signup flow)
+                        const pendingName = localStorage.getItem('pendingInviteName');
+                        if (pendingName) {
+                            try {
+                                console.log('AuthContext: Found pending name, updating profile...', pendingName);
+                                await api.settings.updateProfile(currentUser.id, { full_name: pendingName });
+                            } catch (err) {
+                                console.error('AuthContext: Failed to update pending name', err);
+                            } finally {
+                                localStorage.removeItem('pendingInviteName');
+                            }
+                        }
+
                         localStorage.removeItem('pendingInviteToken');
                     }
                 }
@@ -96,11 +131,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
         } catch (error) {
             console.error('Failed to restore session:', error);
+            // Even on error, we must eventually allow retry or show error state
+            // But for now, just let it fail gracefully
         } finally {
             console.log('AuthContext: Set loading false');
             setIsLoading(false);
+            checkingRef.current = false;
         }
-    }
+    }, []);
 
     async function signUp(email: string, password: string): Promise<boolean> {
         setIsLoading(true);
@@ -166,7 +204,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, hasStudio, signIn, signUp, signOut, resetPassword, updatePassword }}>
+        <AuthContext.Provider value={{
+            user,
+            isAuthenticated: !!user,
+            isLoading,
+            hasStudio,
+            signIn,
+            signUp,
+            signOut,
+            resetPassword,
+            updatePassword,
+            refreshProfile: checkUser // Expose checkUser
+        }}>
             {children}
         </AuthContext.Provider>
     );

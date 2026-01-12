@@ -7,13 +7,15 @@ interface DragDropUploadProps {
     className?: string;
     label?: string;
     sublabel?: string;
+    accept?: string;
 }
 
 export const DragDropUpload: React.FC<DragDropUploadProps> = ({
     onUpload,
     className,
-    label = "Clicca o trascina qui un'immagine",
-    sublabel = "JPG, PNG supportati"
+    label = "Clicca o trascina qui un file",
+    sublabel = "Tutti i formati supportati",
+    accept
 }) => {
     const [dragActive, setDragActive] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -62,7 +64,7 @@ export const DragDropUpload: React.FC<DragDropUploadProps> = ({
                 type="file"
                 className="hidden"
                 onChange={handleChange}
-                accept="image/*"
+                accept={accept}
             />
             <Upload className="mx-auto mb-4 text-text-muted" size={32} />
             <p className="text-white font-medium mb-1">{label}</p>

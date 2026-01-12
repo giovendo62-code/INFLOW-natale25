@@ -12,7 +12,7 @@ import { IntegrationsTab } from '../artists/components/IntegrationsTab';
 import { useLocation } from 'react-router-dom';
 
 export const SettingsPage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, refreshProfile } = useAuth();
     const { theme, setTheme } = useLayoutStore();
     const location = useLocation();
 
@@ -24,8 +24,15 @@ export const SettingsPage: React.FC = () => {
 
     // Update activeTab if URL changes
     React.useEffect(() => {
-        const tab = new URLSearchParams(location.search).get('tab');
-        if (tab) setActiveTab(tab);
+        const params = new URLSearchParams(location.search);
+        const tab = params.get('tab');
+        const googleSuccess = params.get('google_sync_success');
+
+        if (googleSuccess === 'true') {
+            setActiveTab('integrations');
+        } else if (tab) {
+            setActiveTab(tab);
+        }
     }, [location.search]);
 
     const isStudent = user?.role?.toLowerCase() === 'student';
@@ -47,6 +54,14 @@ export const SettingsPage: React.FC = () => {
     // Split tabs into contexts
     const studioGroup = ['studio', 'team'];
     const isStudioContext = studioGroup.includes(activeTab);
+
+    const handleUpdate = React.useCallback(async () => {
+        // Avoid full reload, just refresh profile to get new integration status
+        await refreshProfile();
+        // Also ensure URL is clean if not already
+        const newUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, '', newUrl);
+    }, [refreshProfile]);
 
     const visibleTabs = tabs.filter(t => {
         if (isStudioContext) return studioGroup.includes(t.id);
@@ -85,7 +100,7 @@ export const SettingsPage: React.FC = () => {
                 {activeTab === 'team' && <TeamSettings />}
                 {activeTab === 'studio' && <StudioSettings />}
                 {activeTab === 'contract' && <ArtistContractSettings />}
-                {activeTab === 'integrations' && user && <IntegrationsTab artist={user} onUpdate={() => window.location.reload()} />}
+                {activeTab === 'integrations' && user && <IntegrationsTab artist={user} onUpdate={handleUpdate} />}
 
                 {activeTab === 'appearance' && (
                     <div className="space-y-6">

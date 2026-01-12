@@ -1,86 +1,183 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import type { WaitlistEntry } from '../../services/types';
-import { Search, Filter, QrCode, CheckCircle, Clock, UserPlus, ArrowUpRight, ChevronDown, ArrowDownWideNarrow, ArrowUpNarrowWide, PenTool, Check, Link } from 'lucide-react';
+import { Search, Filter, QrCode, CheckCircle, Clock, UserPlus, ArrowUpRight, ChevronDown, ArrowDownWideNarrow, ArrowUpNarrowWide, PenTool, Check, Link, ChevronDownCircle } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../auth/AuthContext';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export const WaitlistManager: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [entries, setEntries] = useState<WaitlistEntry[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [showQr, setShowQr] = useState(false);
-    const [copied, setCopied] = useState(false);
-    const [activeTab, setActiveTab] = useState<'PENDING' | 'IN_PROGRESS' | 'COMPLETED'>('PENDING');
+    const queryClient = useQueryClient();
 
     // Filters State
+    const [activeTab, setActiveTab] = useState<'PENDING' | 'IN_PROGRESS' | 'COMPLETED'>('PENDING');
     const [searchTerm, setSearchTerm] = useState('');
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [dateFilter, setDateFilter] = useState('');
     const [styleFilter, setStyleFilter] = useState('');
     const [interestFilter, setInterestFilter] = useState<'ALL' | 'TATTOO' | 'ACADEMY'>('ALL');
     const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
+    const [showQr, setShowQr] = useState(false);
+    const [copied, setCopied] = useState(false);
 
-    useEffect(() => {
-        loadData();
-    }, []);
+    // Pagination State
+    const [visibleCount, setVisibleCount] = useState(50);
+    const ITEMS_PER_PAGE = 50;
 
-    const loadData = async () => {
-        setLoading(true);
+    // Undo State
+    const [undoAction, setUndoAction] = useState<{ id: string, status: WaitlistEntry['status'] } | null>(null);
+    const [undoTimer, setUndoTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+
+    // React Query
+    const { data: entries = [], isLoading: loading } = useQuery({
+        queryKey: ['waitlist', user?.studio_id],
+        queryFn: () => api.waitlist.list(user?.studio_id || 'studio-1'),
+        enabled: !!user?.studio_id,
+        staleTime: 1000 * 60 * 5, // 5 minutes
+    });
+
+    const handleStatusUpdate = async (id: string, status: WaitlistEntry['status'], isUndo = false) => {
+        // Find current status for Undo (only if not already an undo action)
+        if (!isUndo) {
+            const currentEntry = entries.find(e => e.id === id);
+            if (currentEntry) {
+                setUndoAction({ id, status: currentEntry.status });
+                // Reset timer
+                if (undoTimer) clearTimeout(undoTimer);
+                const timer = setTimeout(() => setUndoAction(null), 5000);
+                setUndoTimer(timer);
+            }
+        }
+
+        // Optimistic Update
+        queryClient.setQueryData(['waitlist', user?.studio_id], (old: WaitlistEntry[] | undefined) => {
+            return old ? old.map(e => e.id === id ? { ...e, status } : e) : [];
+        });
+
         try {
-            const data = await api.waitlist.list(user?.studio_id || 'studio-1');
-            setEntries(data);
+            await api.waitlist.updateStatus(id, status);
         } catch (err) {
-            console.error(err);
-        } finally {
-            setLoading(false);
+            alert('Errore aggiornamento stato');
+            // Revert
+            queryClient.setQueryData(['waitlist', user?.studio_id], (old: WaitlistEntry[] | undefined) => {
+                queryClient.invalidateQueries({ queryKey: ['waitlist', user?.studio_id] });
+                return old;
+            });
         }
     };
 
-    const handleStatusUpdate = async (id: string, status: WaitlistEntry['status']) => {
-        try {
-            await api.waitlist.updateStatus(id, status);
-            loadData();
-        } catch (err) {
-            alert('Errore aggiornamento stato');
+    const handleUndo = () => {
+        if (undoAction) {
+            handleStatusUpdate(undoAction.id, undoAction.status, true);
+            setUndoAction(null);
+            if (undoTimer) clearTimeout(undoTimer);
         }
     };
 
     const publicLink = `${window.location.origin}/public/waitlist/${user?.studio_id || 'studio-1'}`;
 
-    const filteredEntries = entries.filter(entry => {
-        // Tab Filter
-        const matchesTab = (() => {
-            if (activeTab === 'PENDING') return entry.status === 'PENDING';
-            if (activeTab === 'IN_PROGRESS') return entry.status === 'IN_PROGRESS' || entry.status === 'CONTACTED';
-            if (activeTab === 'COMPLETED') return entry.status === 'BOOKED' || entry.status === 'REJECTED';
-            return true;
-        })();
+    // Memoized Filter Logic
+    const filteredEntries = useMemo(() => {
+        try {
+            return entries.filter(entry => {
+                // Tab Filter
+                const matchesTab = (() => {
+                    if (activeTab === 'PENDING') return entry.status === 'PENDING';
+                    if (activeTab === 'IN_PROGRESS') return entry.status === 'IN_PROGRESS' || entry.status === 'CONTACTED';
+                    if (activeTab === 'COMPLETED') return entry.status === 'BOOKED' || entry.status === 'REJECTED';
+                    return true;
+                })();
 
-        // Search Filter (Name/Email)
-        const matchesSearch = searchTerm === '' ||
-            entry.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            entry.email.toLowerCase().includes(searchTerm.toLowerCase());
+                // Safe accessors for potentially missing fields
+                const safeName = (entry.client_name || '').toLowerCase();
+                const safeEmail = (entry.email || '').toLowerCase();
+                const searchLower = searchTerm.toLowerCase();
 
-        // Style Filter
-        const matchesStyle = styleFilter === '' ||
-            entry.styles.some(s => s.toLowerCase().includes(styleFilter.toLowerCase()));
+                // Search Filter (Name/Email)
+                const matchesSearch = searchTerm === '' ||
+                    safeName.includes(searchLower) ||
+                    safeEmail.includes(searchLower);
 
-        // Date Filter (Exact match on date string for simplicity, can be range)
-        const matchesDate = dateFilter === '' ||
-            new Date(entry.created_at).toISOString().split('T')[0] === dateFilter;
+                // Style Filter
+                const matchesStyle = styleFilter === '' ||
+                    (entry.styles || []).some(s => s.toLowerCase().includes(styleFilter.toLowerCase()));
 
-        // Interest Filter
-        const matchesInterest = interestFilter === 'ALL' || entry.interest_type === interestFilter;
+                // Date Filter
+                const matchesDate = dateFilter === '' ||
+                    (entry.created_at && new Date(entry.created_at).toISOString().split('T')[0] === dateFilter);
 
-        return matchesTab && matchesSearch && matchesStyle && matchesDate && matchesInterest;
-    }).sort((a, b) => {
-        const dateA = new Date(a.created_at).getTime();
-        const dateB = new Date(b.created_at).getTime();
-        return sortOrder === 'ASC' ? dateA - dateB : dateB - dateA;
-    });
+                // Interest Filter
+                const matchesInterest = interestFilter === 'ALL' || entry.interest_type === interestFilter;
+
+                return matchesTab && matchesSearch && matchesStyle && matchesDate && matchesInterest;
+            }).sort((a, b) => {
+                const dateA = new Date(a.created_at || 0).getTime();
+                const dateB = new Date(b.created_at || 0).getTime();
+                return sortOrder === 'ASC' ? dateA - dateB : dateB - dateA;
+            });
+        } catch (e) {
+            console.error("Error filtering waitlist entries:", e);
+            return [];
+        }
+    }, [entries, activeTab, searchTerm, dateFilter, styleFilter, interestFilter, sortOrder]);
+
+    // Visible Entries for Pagination
+    const visibleEntries = useMemo(() => {
+        return filteredEntries.slice(0, visibleCount);
+    }, [filteredEntries, visibleCount]);
+
+    const handleLoadMore = () => {
+        setVisibleCount(prev => prev + ITEMS_PER_PAGE);
+    };
+
+    // Reset pagination and invalidate query when filters change significantly if needed
+    // But mostly we just reset pagination
+    React.useEffect(() => {
+        setVisibleCount(ITEMS_PER_PAGE);
+    }, [activeTab, searchTerm, dateFilter, styleFilter, interestFilter, sortOrder]);
+
+
+    // Helper for Status Actions
+    const renderActions = (entry: WaitlistEntry, isMobile = false) => {
+        const getBtnClass = (color: 'blue' | 'green' | 'red') => {
+            const base = "px-3 py-1.5 rounded-lg text-xs font-medium border whitespace-nowrap";
+            if (color === 'blue') return `${base} bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 border-blue-500/20`;
+            if (color === 'green') return `${base} bg-green-500/10 hover:bg-green-500/20 text-green-500 border-green-500/20`;
+            if (color === 'red') return `${base} bg-red-500/10 hover:bg-red-500/20 text-red-500 border-red-500/20`;
+            return base;
+        };
+
+        const btnDefault =
+            `px-3 py-1.5 bg-bg-tertiary hover:bg-white/10 text-text-muted hover:text-white rounded-lg text-xs font-medium border border-border whitespace-nowrap`;
+
+        return (
+            <div className={clsx("flex items-center gap-2", isMobile ? "grid grid-cols-2 w-full" : "justify-end")}>
+                {entry.status === 'PENDING' && (
+                    <>
+                        <button onClick={() => handleStatusUpdate(entry.id, 'IN_PROGRESS')} className={getBtnClass('blue')}>In Lavorazione</button>
+                        <button onClick={() => handleStatusUpdate(entry.id, 'BOOKED')} className={getBtnClass('green')}>Completa</button>
+                        <button onClick={() => handleStatusUpdate(entry.id, 'REJECTED')} className={getBtnClass('red')}>Rifiuta</button>
+                    </>
+                )}
+                {(entry.status === 'IN_PROGRESS' || entry.status === 'CONTACTED') && (
+                    <>
+                        <button onClick={() => handleStatusUpdate(entry.id, 'BOOKED')} className={getBtnClass('green')}>Completa</button>
+                        <button onClick={() => handleStatusUpdate(entry.id, 'PENDING')} className={btnDefault}>Attesa</button>
+                        <button onClick={() => handleStatusUpdate(entry.id, 'REJECTED')} className={getBtnClass('red')}>Rifiuta</button>
+                    </>
+                )}
+                {(entry.status === 'BOOKED' || entry.status === 'REJECTED') && (
+                    <>
+                        <button onClick={() => handleStatusUpdate(entry.id, 'IN_PROGRESS')} className={getBtnClass('blue')}>Riapri (Lavorazione)</button>
+                        <button onClick={() => handleStatusUpdate(entry.id, 'PENDING')} className={btnDefault}>Riapri (Attesa)</button>
+                    </>
+                )}
+            </div>
+        );
+    };
 
     return (
         <div className="w-full overflow-x-hidden pt-20 md:pt-8 p-4 md:p-8 relative">
@@ -330,6 +427,7 @@ export const WaitlistManager: React.FC = () => {
                                         setStyleFilter('');
                                         setSearchTerm('');
                                         setSortOrder('DESC');
+                                        queryClient.invalidateQueries({ queryKey: ['waitlist', user?.studio_id] });
                                     }}
                                     className="text-sm text-red-400 hover:text-red-300 underline py-2"
                                 >
@@ -354,16 +452,16 @@ export const WaitlistManager: React.FC = () => {
                         <tbody className="divide-y divide-border">
                             {loading ? (
                                 <tr><td colSpan={4} className="p-8 text-center text-text-muted">Caricamento...</td></tr>
-                            ) : filteredEntries.length === 0 ? (
+                            ) : visibleEntries.length === 0 ? (
                                 <tr><td colSpan={4} className="p-8 text-center text-text-muted">Nessuna richiesta in questa sezione.</td></tr>
                             ) : (
-                                filteredEntries.map(entry => (
+                                visibleEntries.map(entry => (
                                     <tr key={entry.id} className="hover:bg-bg-tertiary/50 transition-colors group">
                                         <td className="p-4">
                                             <div className="flex items-center justify-between gap-2">
                                                 <div>
-                                                    <div className="font-medium text-white hover:text-accent cursor-pointer transition-colors" onClick={() => navigate(`/clients/${entry.client_id}`)}>
-                                                        {entry.client_name}
+                                                    <div className="font-medium text-white hover:text-accent cursor-pointer transition-colors" onClick={() => entry.client_id ? navigate(`/clients/${entry.client_id}`, { state: { fromWaitlist: true } }) : alert('Scheda cliente non disponibile')}>
+                                                        {entry.client_name || 'Senza Nome'}
                                                     </div>
                                                     <div className="text-xs text-text-muted truncate max-w-[150px]">{entry.email}</div>
                                                     <div className="flex gap-1 mt-1">
@@ -379,9 +477,9 @@ export const WaitlistManager: React.FC = () => {
                                                     </div>
                                                 </div>
                                                 <button
-                                                    onClick={() => navigate(`/clients/${entry.client_id}`)}
+                                                    onClick={() => entry.client_id ? navigate(`/clients/${entry.client_id}`, { state: { fromWaitlist: true } }) : alert('Scheda cliente non disponibile')}
                                                     className="text-text-muted hover:text-white p-1 rounded-md hover:bg-white/10 transition-colors"
-                                                    title="Vai alla scheda cliente"
+                                                    title={entry.client_id ? "Vai alla scheda cliente" : "Scheda non disponibile"}
                                                 >
                                                     <ArrowUpRight size={16} />
                                                 </button>
@@ -401,44 +499,39 @@ export const WaitlistManager: React.FC = () => {
                                             {new Date(entry.created_at).toLocaleDateString()}
                                         </td>
                                         <td className="p-4 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                {/* Actions (Same as desktop) */}
-                                                {entry.status === 'PENDING' && (
-                                                    <>
-                                                        <button onClick={() => handleStatusUpdate(entry.id, 'IN_PROGRESS')} className="px-3 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 rounded-lg text-xs font-medium border border-blue-500/20">In Lavorazione</button>
-                                                        <button onClick={() => handleStatusUpdate(entry.id, 'REJECTED')} className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg text-xs font-medium border border-red-500/20">Rifiuta</button>
-                                                    </>
-                                                )}
-                                                {(entry.status === 'IN_PROGRESS' || entry.status === 'CONTACTED') && (
-                                                    <>
-                                                        <button onClick={() => handleStatusUpdate(entry.id, 'BOOKED')} className="px-3 py-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-500 rounded-lg text-xs font-medium border border-green-500/20">Completa</button>
-                                                        <button onClick={() => handleStatusUpdate(entry.id, 'PENDING')} className="px-3 py-1.5 bg-bg-tertiary hover:bg-white/10 text-text-muted hover:text-white rounded-lg text-xs font-medium border border-border">Attesa</button>
-                                                    </>
-                                                )}
-                                                {(entry.status === 'BOOKED' || entry.status === 'REJECTED') && (
-                                                    <button onClick={() => handleStatusUpdate(entry.id, 'IN_PROGRESS')} className="px-3 py-1.5 bg-bg-tertiary hover:bg-white/10 text-text-muted hover:text-white rounded-lg text-xs font-medium border border-border">Riapri</button>
-                                                )}
-                                            </div>
+                                            {renderActions(entry)}
                                         </td>
                                     </tr>
                                 ))
                             )}
                         </tbody>
                     </table>
+                    {/* Load More Button (Desktop) */}
+                    {visibleCount < filteredEntries.length && (
+                        <div className="p-4 flex justify-center border-t border-border">
+                            <button
+                                onClick={handleLoadMore}
+                                className="flex items-center gap-2 px-4 py-2 bg-bg-tertiary hover:bg-white/10 text-text-secondary rounded-lg text-sm transition-colors"
+                            >
+                                <ChevronDownCircle size={16} />
+                                Carica altri ({filteredEntries.length - visibleCount})
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Mobile Card View */}
                 <div className="md:hidden space-y-4">
                     {loading ? (
                         <div className="p-8 text-center text-text-muted">Caricamento...</div>
-                    ) : filteredEntries.length === 0 ? (
+                    ) : visibleEntries.length === 0 ? (
                         <div className="p-8 text-center text-text-muted">Nessuna richiesta in questa sezione.</div>
                     ) : (
-                        filteredEntries.map(entry => (
+                        visibleEntries.map(entry => (
                             <div key={entry.id} className="bg-bg-secondary rounded-xl border border-border p-4 flex flex-col gap-3 min-w-0 w-full overflow-hidden">
                                 <div className="flex justify-between items-start gap-2 min-w-0">
                                     <div className="min-w-0 flex-1">
-                                        <h4 className="font-bold text-white text-lg truncate hover:text-accent cursor-pointer transition-colors" onClick={() => navigate(`/clients/${entry.client_id}`)}>{entry.client_name}</h4>
+                                        <h4 className="font-bold text-white text-lg truncate hover:text-accent cursor-pointer transition-colors" onClick={() => entry.client_id ? navigate(`/clients/${entry.client_id}`, { state: { fromWaitlist: true } }) : alert('Scheda cliente non disponibile')}>{entry.client_name || 'Senza Nome'}</h4>
                                         <p className="text-xs text-text-muted truncate">{entry.email}</p>
                                         <div className="flex gap-1 mt-1">
                                             {entry.interest_type === 'ACADEMY' ? (
@@ -470,29 +563,42 @@ export const WaitlistManager: React.FC = () => {
                                     <p className="text-sm text-text-secondary italic bg-bg-tertiary/50 p-2 rounded break-words">"{entry.description}"</p>
                                 )}
 
-
-                                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border mt-1">
-                                    {/* Mobile Actions */}
-                                    {entry.status === 'PENDING' && (
-                                        <>
-                                            <button onClick={() => handleStatusUpdate(entry.id, 'IN_PROGRESS')} className="py-2 bg-blue-500/10 text-blue-500 rounded-lg text-xs font-bold border border-blue-500/20 px-1">Lavorazione</button>
-                                            <button onClick={() => handleStatusUpdate(entry.id, 'REJECTED')} className="py-2 bg-red-500/10 text-red-500 rounded-lg text-xs font-bold border border-red-500/20 px-1">Rifiuta</button>
-                                        </>
-                                    )}
-                                    {(entry.status === 'IN_PROGRESS' || entry.status === 'CONTACTED') && (
-                                        <>
-                                            <button onClick={() => handleStatusUpdate(entry.id, 'BOOKED')} className="py-2 bg-green-500/10 text-green-500 rounded-lg text-xs font-bold border border-green-500/20 px-1">Completa</button>
-                                            <button onClick={() => handleStatusUpdate(entry.id, 'PENDING')} className="py-2 bg-bg-tertiary text-text-muted rounded-lg text-xs font-bold border border-border px-1 text-center">In Attesa</button>
-                                        </>
-                                    )}
-                                    {(entry.status === 'BOOKED' || entry.status === 'REJECTED') && (
-                                        <button onClick={() => handleStatusUpdate(entry.id, 'IN_PROGRESS')} className="col-span-2 py-2 bg-bg-tertiary text-text-muted rounded-lg text-xs font-bold border border-border">Riapri</button>
-                                    )}
+                                <div className="pt-2 border-t border-border mt-1">
+                                    {renderActions(entry, true)}
                                 </div>
                             </div>
                         ))
                     )}
+                    {/* Load More Button (Mobile) */}
+                    {visibleCount < filteredEntries.length && (
+                        <div className="p-4 flex justify-center">
+                            <button
+                                onClick={handleLoadMore}
+                                className="w-full flex justify-center items-center gap-2 px-4 py-3 bg-bg-tertiary hover:bg-white/10 text-text-secondary rounded-lg text-sm transition-colors border border-border"
+                            >
+                                <ChevronDownCircle size={16} />
+                                Carica altri ({filteredEntries.length - visibleCount})
+                            </button>
+                        </div>
+                    )}
                 </div>
+
+                {/* Undo Toast */}
+                {undoAction && (
+                    <div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 bg-black/90 text-white px-6 py-4 rounded-xl border border-white/10 shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-5 z-50">
+                        <div className="flex flex-col">
+                            <span className="font-bold text-sm">Stato Aggiornato</span>
+                            <span className="text-xs text-gray-400">Hai cambiato lo stato di una richiesta.</span>
+                        </div>
+                        <div className="h-8 w-px bg-white/20"></div>
+                        <button
+                            onClick={handleUndo}
+                            className="bg-white text-black px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition-colors"
+                        >
+                            Annulla
+                        </button>
+                    </div>
+                )}
             </div>
         </div >
     );

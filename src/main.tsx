@@ -17,13 +17,28 @@ window.onunhandledrejection = (event) => {
 
 console.log('App starting...');
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes fresh
+      gcTime: 1000 * 60 * 10, // 10 minutes cache
+      retry: 1,
+      refetchOnWindowFocus: false, // Better for mobile
+    },
+  },
+});
+
 const rootEl = document.getElementById('root');
 if (rootEl) {
   const root = ReactDOM.createRoot(rootEl);
   root.render(
     <React.StrictMode>
       <GlobalErrorBoundary>
-        <App />
+        <QueryClientProvider client={queryClient}>
+          <App />
+        </QueryClientProvider>
       </GlobalErrorBoundary>
     </React.StrictMode>
   );

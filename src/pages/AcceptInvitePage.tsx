@@ -91,18 +91,22 @@ export const AcceptInvitePage: React.FC = () => {
             } else {
                 // Pass current URL as redirect to ensuring they come back here
                 const redirectUrl = `${window.location.origin}/accept-invite?token=${token}`;
-                const session = await api.auth.signUp(email, password, redirectUrl);
+                const result = await api.auth.signUp(email, password, redirectUrl);
 
-                if (session?.user) {
-                    user = session.user;
+                // If result is not null, immediate login succeeded (Confirm Email disabled)
+                if (result) {
+                    user = result.user;
                     // Update full name if signed up
                     if (fullName) {
-                        await api.settings.updateProfile(user.id, { full_name: fullName });
+                        await api.settings.updateProfile(user!.id, { full_name: fullName });
                     }
                 } else {
                     // Confirmation email sent
                     if (token) {
                         localStorage.setItem('pendingInviteToken', token);
+                        if (fullName) {
+                            localStorage.setItem('pendingInviteName', fullName);
+                        }
                     }
                     setAuthError('Controlla la tua email per confermare l\'account. Dopo la conferma verrai reindirizzato qui.');
                     setAuthLoading(false);
@@ -132,7 +136,11 @@ export const AcceptInvitePage: React.FC = () => {
                     <AlertTriangle size={48} className="mx-auto text-red-500 mb-4" />
                     <h2 className="text-xl font-bold text-white mb-2">Invito Non Valido</h2>
                     <p className="text-text-muted mb-6">{invitationError}</p>
+                    <div className="text-xs text-left bg-black/30 p-2 rounded mb-4 font-mono text-gray-500 break-all">
+                        Debug: {token}
+                    </div>
                     <button onClick={() => navigate('/')} className="text-accent hover:underline">Torna alla Dashboard</button>
+                    <button onClick={() => window.location.reload()} className="block mx-auto mt-4 text-sm text-text-muted hover:text-white">Riprova</button>
                 </div>
             </div>
         );

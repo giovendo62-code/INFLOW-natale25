@@ -267,7 +267,9 @@ export interface IRepository {
     updateProfile(userId: string, data: Partial<User>): Promise<User>;
     listTeamMembers(studioId: string): Promise<User[]>;
     inviteMember(email: string, role: UserRole, studioId: string): Promise<User>;
-    removeMember(userId: string): Promise<void>;
+    getMyPendingInvitations(): Promise<{ token: string; studio_name: string; role: string; created_at: string }[]>;
+    recoverOrphanedOwner(): Promise<string | null>;
+    removeMember(userId: string, studioId: string): Promise<void>;
     getStudio(studioId: string): Promise<Studio | null>;
     updateStudio(studioId: string, data: Partial<Studio>): Promise<Studio>;
     registerStudio(name: string, userId: string): Promise<Studio>;
@@ -405,4 +407,10 @@ export interface Studio {
   fiscal_code?: string;
   company_name?: string;
   google_review_url?: string;
+  google_sheets_config?: {
+    spreadsheet_id?: string;
+    sheet_name?: string;
+    auto_sync_enabled?: boolean;
+    mapping?: Record<string, string>;
+  };
 }

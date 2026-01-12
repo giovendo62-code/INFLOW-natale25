@@ -68,28 +68,40 @@ export class SupabaseRepository implements IRepository {
             await supabase.auth.signOut();
         },
         getCurrentUser: async (): Promise<User | null> => {
+            console.log('[REPO] getCurrentUser: getting session...');
             const { data } = await supabase.auth.getSession();
-            if (!data.session) return null;
+            if (!data.session) {
+                console.log('[REPO] getCurrentUser: no session found.');
+                return null;
+            }
+            console.log('[REPO] getCurrentUser: session found for', data.session.user.id);
 
-            const { data: userData } = await supabase
+            console.log('[REPO] getCurrentUser: fetching user profile...');
+            const { data: userData, error: userError } = await supabase
                 .from('users')
                 .select('*')
                 .eq('id', data.session.user.id)
                 .single();
+            if (userError) console.warn('[REPO] getCurrentUser: fetch user profile error (minor):', userError.message);
 
-            const { data: membership } = await supabase
+            console.log('[REPO] getCurrentUser: fetching membership...');
+            const { data: membership, error: memError } = await supabase
                 .from('studio_memberships')
                 .select('role, studio_id')
                 .eq('user_id', data.session.user.id)
                 .maybeSingle();
+            if (memError) console.warn('[REPO] getCurrentUser: fetch membership error (minor):', memError.message);
 
+            console.log('[REPO] getCurrentUser: fetching integrations...');
             // Fetch integrations separately (safer than join if FK is missing on public.users)
-            const { data: integrations } = await supabase
+            const { data: integrations, error: intError } = await supabase
                 .from('user_integrations')
                 .select('*')
                 .eq('user_id', data.session.user.id);
+            if (intError) console.warn('[REPO] getCurrentUser: fetch integrations error (minor):', intError.message);
 
             const googleIntegration = integrations?.find((i: any) => i.provider === 'google');
+            console.log('[REPO] getCurrentUser: integrations fetched.', googleIntegration ? 'Google connected' : 'No Google');
 
             // Merge membership info into user object
             if (userData) {
@@ -111,6 +123,7 @@ export class SupabaseRepository implements IRepository {
             }
 
             // Fallback if public.users record is missing (but Auth exists)
+            console.log('[REPO] getCurrentUser: Fallback user (missing profile).');
             return {
                 id: data.session.user.id,
                 email: data.session.user.email!,
@@ -437,6 +450,73 @@ export class SupabaseRepository implements IRepository {
         create: async (data: Omit<Client, 'id'>): Promise<Client> => {
             const { data: newClient, error } = await supabase.from('clients').insert(data).select().single();
             if (error) throw error;
+
+            // Google Sheets Auto-Sync
+            if (newClient.studio_id) {
+                // Fetch Studio Config
+                const { data: studio } = await supabase
+                    .from('studios')
+                    .select('google_sheets_config')
+                    .eq('id', newClient.studio_id)
+                    .single();
+
+                const config = studio?.google_sheets_config as any;
+
+                if (config && config.auto_sync_enabled && config.spreadsheet_id && config.sheet_name) {
+                    console.log('[Auto-Sync] Triggering append for client:', newClient.id);
+
+                    let row: any[] = [];
+                    const mapping = config.mapping as Record<string, string> | undefined;
+
+                    if (mapping && Object.keys(mapping).length > 0) {
+                        // Use configured mapping
+                        const fields = Object.values(mapping);
+                        row = fields.map(field => {
+                            if (field === 'first_name') return (newClient.full_name || '').split(' ')[0] || '';
+                            if (field === 'last_name') {
+                                const parts = (newClient.full_name || '').split(' ');
+                                return parts.length > 1 ? parts.slice(1).join(' ') : '';
+                            }
+                            if (field === 'created_at') return new Date().toLocaleDateString();
+                            if (field === 'preferred_styles') return Array.isArray((newClient as any).preferred_styles) ? (newClient as any).preferred_styles.join(', ') : '';
+                            return (newClient as any)[field] || '';
+                        });
+                    } else {
+                        // Default Fallback
+                        const [firstName, ...lastNameParts] = (newClient.full_name || '').split(' ');
+                        const lastName = lastNameParts.join(' ');
+                        row = [
+                            firstName || '',
+                            lastName || '',
+                            newClient.email || '',
+                            newClient.phone || '',
+                            newClient.fiscal_code || '',
+                            newClient.address || '',
+                            newClient.city || '',
+                            newClient.zip_code || '',
+                            newClient.notes || '',
+                            new Date().toLocaleDateString()
+                        ];
+                    }
+
+                    // Non-blocking call
+                    supabase.functions.invoke('fetch-google-sheets', {
+                        body: {
+                            action: 'append_data',
+                            spreadsheetId: config.spreadsheet_id,
+                            sheetName: config.sheet_name,
+                            values: [row]
+                        }
+                    }).then(({ data, error }) => {
+                        if (error) console.error('[Auto-Sync] Edge Function Error:', error);
+                        else if (data?.error) console.error('[Auto-Sync] Sheet Error:', data.error);
+                        else console.log('[Auto-Sync] Success:', data);
+                    }).catch(err => {
+                        console.error('[Auto-Sync] Unexpected Error:', err);
+                    });
+                }
+            }
+
             return newClient;
         },
         createPublic: async (data: Omit<Client, 'id'>): Promise<Pick<Client, 'id' | 'full_name' | 'email'>> => {
@@ -453,6 +533,65 @@ export class SupabaseRepository implements IRepository {
                 p_whatsapp_broadcast_opt_in: data.whatsapp_broadcast_opt_in
             });
             if (error) throw error;
+
+            // Google Sheets Auto-Sync (Public)
+            if (data.studio_id) {
+                // Fetch Studio Config
+                const { data: studio } = await supabase
+                    .from('studios')
+                    .select('google_sheets_config')
+                    .eq('id', data.studio_id)
+                    .single();
+
+                const config = studio?.google_sheets_config as any;
+
+                if (config && config.auto_sync_enabled && config.spreadsheet_id && config.sheet_name) {
+                    // console.log('[Auto-Sync] Triggering append for public client');
+
+                    let row: any[] = [];
+                    const mapping = config.mapping as Record<string, string> | undefined;
+
+                    if (mapping && Object.keys(mapping).length > 0) {
+                        const fields = Object.values(mapping);
+                        row = fields.map(field => {
+                            // Note: use 'data' object which has all fields
+                            if (field === 'first_name') return (data.full_name || '').split(' ')[0] || '';
+                            if (field === 'last_name') {
+                                const parts = (data.full_name || '').split(' ');
+                                return parts.length > 1 ? parts.slice(1).join(' ') : '';
+                            }
+                            if (field === 'created_at') return new Date().toLocaleDateString();
+                            if (field === 'preferred_styles') return Array.isArray((data as any).preferred_styles) ? (data as any).preferred_styles.join(', ') : '';
+                            return (data as any)[field] || '';
+                        });
+                    } else {
+                        const [firstName, ...lastNameParts] = (data.full_name || '').split(' ');
+                        const lastName = lastNameParts.join(' ');
+                        row = [
+                            firstName || '',
+                            lastName || '',
+                            data.email || '',
+                            data.phone || '',
+                            data.fiscal_code || '',
+                            data.address || '',
+                            data.city || '',
+                            data.zip_code || '',
+                            data.notes || '',
+                            new Date().toLocaleDateString()
+                        ];
+                    }
+
+                    supabase.functions.invoke('fetch-google-sheets', {
+                        body: {
+                            action: 'append_data',
+                            spreadsheetId: config.spreadsheet_id,
+                            sheetName: config.sheet_name,
+                            values: [row]
+                        }
+                    }).catch(err => console.error('[Auto-Sync Public] Error:', err));
+                }
+            }
+
             // The RPC returns { id: ..., full_name: ..., email: ... }
             return newClient as Pick<Client, 'id' | 'full_name' | 'email'>;
         },
@@ -690,9 +829,37 @@ export class SupabaseRepository implements IRepository {
                 studio_id: studioId
             } as User;
         },
-        removeMember: async (userId: string): Promise<void> => {
-            const { error } = await supabase.from('users').delete().eq('id', userId);
-            if (error) throw error;
+        getMyPendingInvitations: async () => {
+            const { data, error } = await supabase.rpc('get_my_pending_invitations');
+            if (error) {
+                console.error('Error fetching pending invitations:', error);
+                return [];
+            }
+            return data as { token: string; studio_name: string; role: string; created_at: string }[];
+        },
+        recoverOrphanedOwner: async () => {
+            const { data, error } = await supabase.rpc('recover_orphaned_owner');
+            if (error) {
+                console.error('Error recovering orphaned owner:', error);
+                return null;
+            }
+            if (data && data.length > 0) {
+                return data[0].recovered_studio_name;
+            }
+            return null;
+        },
+        removeMember: async (userId: string, studioId: string): Promise<void> => {
+            console.log('[DEBUG] Removing member (RPC):', userId, 'from studio:', studioId);
+
+            const { error } = await supabase.rpc('delete_team_member', {
+                target_user_id: userId,
+                studio_id_input: studioId
+            });
+
+            if (error) {
+                console.error('[DEBUG] Failed to delete member via RPC:', error);
+                throw error;
+            }
         },
         getStudio: async (studioId: string): Promise<Studio | null> => {
             // Validate UUID to prevent Postgres errors

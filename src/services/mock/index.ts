@@ -663,19 +663,26 @@ export class MockRepository implements IRepository {
             const newUser: User = {
                 id: `u-${Date.now()}`,
                 email,
+                full_name: email.split('@')[0],
                 role,
-                full_name: email.split('@')[0], // Simple mock name
                 studio_id: studioId,
                 avatar_url: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`
             };
             MOCK_USERS.push(newUser);
             return newUser;
         },
-        removeMember: async (userId: string): Promise<void> => {
+        getMyPendingInvitations: async () => {
+            await new Promise(resolve => setTimeout(resolve, 300));
+            return []; // Default empty for mock
+        },
+        recoverOrphanedOwner: async () => {
+            await new Promise(resolve => setTimeout(resolve, 300));
+            return null;
+        },
+        removeMember: async (userId: string, _studioId: string): Promise<void> => {
             await new Promise(resolve => setTimeout(resolve, 400));
             const idx = MOCK_USERS.findIndex(u => u.id === userId);
-            if (idx === -1) throw new Error('User not found');
-            MOCK_USERS.splice(idx, 1);
+            if (idx !== -1) MOCK_USERS.splice(idx, 1);
         },
         getStudio: async (studioId: string): Promise<Studio | null> => {
             await new Promise(resolve => setTimeout(resolve, 200));

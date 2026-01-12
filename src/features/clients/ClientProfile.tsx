@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Mail, Phone, Calendar, Image, FileText, Activity, X, Save, Tag, MapPin, CreditCard } from 'lucide-react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { ArrowLeft, Mail, Phone, Calendar, Image, FileText, Activity, X, Save, Tag, MapPin, CreditCard, ClipboardList } from 'lucide-react';
 import { api } from '../../services/api';
 import { supabase } from '../../lib/supabase';
-import type { Client } from '../../services/types';
+import type { Client, WaitlistEntry } from '../../services/types';
 import clsx from 'clsx';
 
 import { Trash2, Eye } from 'lucide-react';
@@ -17,9 +17,11 @@ import { useAuth } from '../auth/AuthContext';
 export const ClientProfile: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
     const [client, setClient] = useState<Client | null>(null);
-    const [activeTab, setActiveTab] = useState('gallery'); // Default to Gallery for demo
+    const [waitlistEntry, setWaitlistEntry] = useState<WaitlistEntry | null>(null);
+    const [activeTab, setActiveTab] = useState('gallery'); // Default to Gallery
     const [loading, setLoading] = useState(true);
 
     const [isEditing, setIsEditing] = useState(false);
@@ -28,6 +30,7 @@ export const ClientProfile: React.FC = () => {
     const [isAppointmentDrawerOpen, setIsAppointmentDrawerOpen] = useState(false);
 
     const isNewClient = id === 'new';
+    const fromWaitlist = location.state?.fromWaitlist;
 
     useEffect(() => {
         if (isNewClient) {
@@ -54,8 +57,34 @@ export const ClientProfile: React.FC = () => {
         try {
             const data = await api.clients.getById(clientId);
             setClient(data);
+
+            // Fetch Waitlist Entry if exists
+            if (data?.id) {
+                const { data: entries } = await supabase
+                    .from('waitlist_entries')
+                    .select('*')
+                    .eq('client_id', data.id)
+                    .order('created_at', { ascending: false })
+                    .limit(1);
+
+                if (entries && entries.length > 0) {
+                    setWaitlistEntry(entries[0]);
+                    // If navigated from waitlist, show Request tab by default
+                    if (fromWaitlist) {
+                        setActiveTab('request');
+                    }
+                }
+            }
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleBack = () => {
+        if (fromWaitlist) {
+            navigate('/waitlist');
+        } else {
+            navigate('/clients');
         }
     };
 
@@ -156,18 +185,10 @@ export const ClientProfile: React.FC = () => {
         if (!client) return;
 
         // Validation
-        // Validation
         if (!formData.full_name?.trim()) {
             alert('Il nome completo è obbligatorio.');
             return;
         }
-        if (!formData.full_name?.trim()) {
-            alert('Il nome completo è obbligatorio.');
-            return;
-        }
-        // Relaxed validation: Email/Phone/Address are optional for quick entry
-        // but likely we want at least one contact. For now, let's unblock the user.
-
 
         try {
             if (isNewClient) {
@@ -275,8 +296,9 @@ export const ClientProfile: React.FC = () => {
             {/* Header */}
             <div className="flex items-center gap-4 p-6 border-b border-border bg-bg-secondary/50 backdrop-blur-sm sticky top-0 z-10">
                 <button
-                    onClick={() => navigate('/clients')}
+                    onClick={handleBack}
                     className="p-2 hover:bg-white/5 rounded-full text-text-secondary transition-colors"
+                    title={fromWaitlist ? "Torna alla lista d'attesa" : "Torna ai clienti"}
                 >
                     <ArrowLeft size={24} />
                 </button>
@@ -327,7 +349,6 @@ export const ClientProfile: React.FC = () => {
                         {isEditing ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="col-span-2">
-                                    {/* Edit Input Removed from snippet for brevity, focusing on buttons below */}
                                     <input
                                         type="text"
                                         value={formData.full_name || ''}
@@ -507,18 +528,19 @@ export const ClientProfile: React.FC = () => {
                 </div>
                 {/* Tabs */}
                 <div className="border-b border-border">
-                    <nav className="flex gap-6">
+                    <nav className="flex gap-6 overflow-x-auto">
                         {[
-                            { id: 'history', label: 'Storico', icon: Calendar },
-                            { id: 'gallery', label: 'Galleria', icon: Image },
-                            { id: 'consents', label: 'Consensi', icon: FileText },
-                            { id: 'medical', label: 'Info Mediche', icon: Activity },
-                        ].map(tab => (
+                            { id: 'request', label: 'Richiesta', icon: ClipboardList, visible: !!waitlistEntry },
+                            { id: 'gallery', label: 'Galleria', icon: Image, visible: true },
+                            { id: 'history', label: 'Storico', icon: Calendar, visible: true },
+                            { id: 'consents', label: 'Consensi', icon: FileText, visible: true },
+                            { id: 'medical', label: 'Info Mediche', icon: Activity, visible: true },
+                        ].filter(t => t.visible).map(tab => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={clsx(
-                                    "pb-4 flex items-center gap-2 text-sm font-medium transition-colors border-b-2",
+                                    "pb-4 flex items-center gap-2 text-sm font-medium transition-colors border-b-2 whitespace-nowrap",
                                     activeTab === tab.id
                                         ? "text-accent border-accent"
                                         : "text-text-muted border-transparent hover:text-white hover:border-gray-700"
@@ -532,14 +554,57 @@ export const ClientProfile: React.FC = () => {
                 </div>
 
                 {/* Tab Content */}
-                <div className="min-h-[300px]">
+                <div className="min-h-[300px] mt-6">
+                    {activeTab === 'request' && waitlistEntry && (
+                        <div className="space-y-6">
+                            <div className="bg-bg-secondary rounded-lg border border-border p-6">
+                                <h3 className="text-lg font-bold text-white mb-4">Dettagli Richiesta</h3>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-sm text-text-muted">Descrizione Idea</label>
+                                        <p className="text-white mt-1 whitespace-pre-wrap">{waitlistEntry.description || 'Nessuna descrizione.'}</p>
+                                    </div>
+                                    <div>
+                                        <label className="text-sm text-text-muted">Stili Indicati</label>
+                                        <div className="flex gap-2 mt-1 flex-wrap">
+                                            {waitlistEntry.styles && waitlistEntry.styles.length > 0 ? (
+                                                waitlistEntry.styles.map((s, i) => (
+                                                    <span key={i} className="px-2 py-1 rounded bg-bg-tertiary text-sm text-text-secondary border border-border">
+                                                        {s}
+                                                    </span>
+                                                ))
+                                            ) : (
+                                                <span className="text-text-secondary italic">Nessuno stile specificato</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="text-sm text-text-muted">Immagini di Riferimento</label>
+                                        {waitlistEntry.images && waitlistEntry.images.length > 0 ? (
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
+                                                {waitlistEntry.images.map((url, i) => (
+                                                    <div key={i} className="aspect-square rounded-lg overflow-hidden border border-border bg-bg-tertiary" onClick={() => window.open(url, '_blank')}>
+                                                        <img src={url} alt={`Riferimento ${i}`} className="w-full h-full object-cover hover:scale-105 transition-transform cursor-pointer" />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-text-secondary italic mt-1">Nessuna immagine allegata.</p>
+                                        )}
+                                    </div>
+                                    <div className="pt-4 border-t border-border mt-4">
+                                        <p className="text-xs text-text-muted">Richiesta inviata il: {new Date(waitlistEntry.created_at).toLocaleDateString()}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {activeTab === 'history' && (
                         <div className="bg-bg-secondary rounded-lg border border-border p-8 text-center text-text-muted">
                             Storico appuntamenti non disponibile
-                            {/* Import history component later */}
                         </div>
                     )}
-                    {/* Other tabs omitted for brevity */}
 
                     {
                         activeTab === 'gallery' && (

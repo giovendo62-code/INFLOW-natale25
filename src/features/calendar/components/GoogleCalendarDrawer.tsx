@@ -14,11 +14,11 @@ interface GoogleCalendarDrawerProps {
 }
 
 export const GoogleCalendarDrawer: React.FC<GoogleCalendarDrawerProps> = ({ isOpen, onClose, artists }) => {
-    const { user } = useAuth();
+    const { user, refreshProfile } = useAuth(); // Import refreshProfile
     const [isConnected, setIsConnected] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    // Check for success param on mount OR existing connection
+    // Initial check for success param
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         if (params.get('google_sync_success') === 'true') {
@@ -26,35 +26,47 @@ export const GoogleCalendarDrawer: React.FC<GoogleCalendarDrawerProps> = ({ isOp
             // Clean URL
             const newUrl = window.location.pathname + window.location.hash;
             window.history.replaceState({}, '', newUrl);
-        } else if (user?.integrations?.google_calendar?.is_connected) {
-            setIsConnected(true);
+        }
+    }, []);
+
+    // Sync local state with user profile state
+    useEffect(() => {
+        if (user?.integrations?.google_calendar) {
+            setIsConnected(!!user.integrations.google_calendar.is_connected);
         }
     }, [user]);
 
     const [availableCalendars, setAvailableCalendars] = useState<any[]>([]);
-    const [calendarMapping, setCalendarMapping] = useState<Record<string, string>>({}); // artistId -> calendarId
+    const [calendarMapping, setCalendarMapping] = useState<Record<string, string>>({});
     const [twoWaySync, setTwoWaySync] = useState(false);
 
     // Fetch calendars when connected
     useEffect(() => {
+        // Only fetch if genuinely connected and we have a user
         if (isConnected && user?.id) {
+            let mounted = true;
             async function fetchCalendars() {
                 try {
                     const calendars = await api.googleCalendar.listCalendars(user!.id);
-                    setAvailableCalendars(calendars);
-
-                    // Initialize settings from user profile
-                    if (user?.integrations?.google_calendar) {
-                        const savedMapping = user.integrations.google_calendar.calendar_mapping || {};
-                        const savedTwoWay = user.integrations.google_calendar.two_way_sync || false;
-                        setCalendarMapping(savedMapping);
-                        setTwoWaySync(savedTwoWay);
+                    if (mounted) {
+                        setAvailableCalendars(calendars);
+                        // Initialize settings from user profile
+                        if (user?.integrations?.google_calendar) {
+                            const savedMapping = user.integrations.google_calendar.calendar_mapping || {};
+                            const savedTwoWay = user.integrations.google_calendar.two_way_sync || false;
+                            setCalendarMapping(savedMapping);
+                            setTwoWaySync(savedTwoWay);
+                        }
                     }
                 } catch (err) {
                     console.error("Failed to fetch calendars", err);
                 }
             }
             fetchCalendars();
+            return () => { mounted = false; };
+        } else {
+            // Reset if disconnected
+            setAvailableCalendars([]);
         }
     }, [isConnected, user]);
 
@@ -65,14 +77,27 @@ export const GoogleCalendarDrawer: React.FC<GoogleCalendarDrawerProps> = ({ isOp
         window.location.href = loginUrl;
     };
 
-    const handleDisconnect = () => {
+    const handleDisconnect = async () => {
+        if (!user?.id) return;
         if (confirm('Disconnettere Google Calendar? La sincronizzazione verrà interrotta.')) {
-            // Call API to remove from DB
-            api.googleCalendar.disconnect(user!.id).then(() => {
+            setLoading(true);
+            try {
+                await api.googleCalendar.disconnect(user.id);
+                // Force local update first to update UI immediately
                 setIsConnected(false);
                 setAvailableCalendars([]);
                 setCalendarMapping({});
-            });
+
+                // Refresh profile to ensure context is in sync
+                await refreshProfile();
+
+                alert("Disconnessione avvenuta con successo.");
+            } catch (error) {
+                console.error("Disconnect failed:", error);
+                alert("Errore durante la disconnessione. Riprova.");
+            } finally {
+                setLoading(false);
+            }
         }
     };
 

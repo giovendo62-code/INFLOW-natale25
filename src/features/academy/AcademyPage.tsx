@@ -5,6 +5,7 @@ import type { Course, CourseMaterial, CourseEnrollment, AttendanceLog, User } fr
 import clsx from 'clsx';
 import { useAuth } from '../auth/AuthContext';
 import { StudentProfileModal } from './components/StudentProfileModal';
+import { DragDropUpload } from '../../components/DragDropUpload';
 
 export const AcademyPage: React.FC = () => {
     const { user } = useAuth();
@@ -43,6 +44,15 @@ export const AcademyPage: React.FC = () => {
     // Quick Attendance State
     const [courseEnrollments, setCourseEnrollments] = useState<Record<string, CourseEnrollment>>({}); // Map studentId -> Enrollment
     const [_loadingCourseEnrollments, setLoadingCourseEnrollments] = useState(false);
+
+    // Material Upload State
+    const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false);
+    const [newMaterialData, setNewMaterialData] = useState<{ title: string; type: CourseMaterial['type']; file: File | null }>({
+        title: '',
+        type: 'PDF',
+        file: null
+    });
+    const [uploadingMaterial, setUploadingMaterial] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -139,20 +149,50 @@ export const AcademyPage: React.FC = () => {
         }
     };
 
-    const handleAddMaterial = async () => {
-        const title = prompt("Titolo del materiale:");
-        if (!title) return;
+    const handleOpenAddMaterial = () => {
+        setNewMaterialData({ title: '', type: 'PDF', file: null });
+        setIsMaterialModalOpen(true);
+    };
 
-        const newMaterial: CourseMaterial = {
-            id: `mat-${Date.now()}`,
-            title,
-            type: 'PDF',
-            url: '#'
-        };
+    const handleSaveMaterial = async () => {
+        if (!newMaterialData.title || !newMaterialData.file || !selectedCourse) {
+            alert("Compila tutti i campi e carica un file.");
+            return;
+        }
 
-        await handleUpdateCourse({
-            materials: [...(selectedCourse?.materials || []), newMaterial]
-        });
+        setUploadingMaterial(true);
+        try {
+            // 1. Upload file
+            const fileExt = newMaterialData.file.name.split('.').pop();
+            const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const filePath = `materials/${selectedCourse.id}/${fileName}`;
+
+            // Ensure we use the correct bucket name. We assume 'academy-materials' or fall back to a known one if configured.
+            // Using 'materials' as bucket name based on typical setup, or 'academy'.
+            // Checking SupabaseRepository, it uses 'consents', so we might need to be sure.
+            // Let's assume 'academy' for now. Usage: api.storage.upload('academy', path, file)
+
+            const publicUrl = await api.storage.upload('academy', filePath, newMaterialData.file);
+
+            // 2. Add material to course
+            const newMaterial: CourseMaterial = {
+                id: `mat-${Date.now()}`,
+                title: newMaterialData.title,
+                type: newMaterialData.type,
+                url: publicUrl
+            };
+
+            await handleUpdateCourse({
+                materials: [...(selectedCourse.materials || []), newMaterial]
+            });
+
+            setIsMaterialModalOpen(false);
+        } catch (error) {
+            console.error("Upload failed", error);
+            alert("Errore durante il caricamento del file.");
+        } finally {
+            setUploadingMaterial(false);
+        }
     };
 
     /* const handleAddStudent = async () => {
@@ -685,12 +725,78 @@ export const AcademyPage: React.FC = () => {
                                     <div className="flex justify-between items-center mb-6">
                                         <h3 className="text-xl font-bold text-white">Materiali Didattici</h3>
                                         <button
-                                            onClick={handleAddMaterial}
+                                            onClick={handleOpenAddMaterial}
                                             className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg font-medium transition-colors"
                                         >
                                             <Plus size={18} /> Aggiungi Materiale
                                         </button>
                                     </div>
+
+                                    {/* Material Upload Modal */}
+                                    {isMaterialModalOpen && (
+                                        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+                                            <div className="bg-bg-secondary p-6 rounded-xl border border-border w-full max-w-md space-y-4">
+                                                <h3 className="text-xl font-bold text-white">Carica Materiale</h3>
+
+                                                <div>
+                                                    <label className="block text-sm text-text-muted mb-1">Titolo</label>
+                                                    <input
+                                                        type="text"
+                                                        className="w-full bg-bg-tertiary border border-border rounded px-3 py-2 text-white"
+                                                        value={newMaterialData.title}
+                                                        onChange={e => setNewMaterialData({ ...newMaterialData, title: e.target.value })}
+                                                        placeholder="Es. Dispensa Anatomia"
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm text-text-muted mb-1">Tipo</label>
+                                                    <select
+                                                        className="w-full bg-bg-tertiary border border-border rounded px-3 py-2 text-white"
+                                                        value={newMaterialData.type}
+                                                        onChange={e => setNewMaterialData({ ...newMaterialData, type: e.target.value as any })}
+                                                    >
+                                                        <option value="PDF">PDF / Documento</option>
+                                                        <option value="VIDEO">Video</option>
+                                                        <option value="LINK">Link Esterno</option>
+                                                    </select>
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm text-text-muted mb-2">File</label>
+                                                    <DragDropUpload
+                                                        onUpload={(file) => setNewMaterialData({ ...newMaterialData, file })}
+                                                        label={newMaterialData.file ? newMaterialData.file.name : "Trascina file qui"}
+                                                        sublabel={newMaterialData.file ? "File selezionato" : "PDF, Video, Immagini"}
+                                                        className={newMaterialData.file ? "border-accent bg-accent/10" : ""}
+                                                    />
+                                                </div>
+
+                                                <div className="flex gap-2 justify-end mt-4">
+                                                    <button
+                                                        onClick={() => setIsMaterialModalOpen(false)}
+                                                        className="px-4 py-2 text-text-muted hover:text-white"
+                                                    >
+                                                        Annulla
+                                                    </button>
+                                                    <button
+                                                        onClick={handleSaveMaterial}
+                                                        disabled={uploadingMaterial}
+                                                        className="px-4 py-2 bg-accent text-white rounded hover:bg-accent-hover disabled:opacity-50 flex items-center gap-2"
+                                                    >
+                                                        {uploadingMaterial ? (
+                                                            <>
+                                                                <RefreshCw size={16} className="animate-spin" />
+                                                                Caricamento...
+                                                            </>
+                                                        ) : (
+                                                            <>Salva Materiale</>
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                         {(selectedCourse.materials || []).length === 0 && (

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { api } from '../../services/api';
-import { Users, Copy, Check, Mail, Shield } from 'lucide-react';
+import { Users, Copy, Check, Mail, Shield, Trash2 } from 'lucide-react';
 
 export const TeamPage: React.FC = () => {
     const { user } = useAuth();
@@ -201,10 +201,26 @@ const TeamList: React.FC<{ studioId?: string }> = ({ studioId }) => {
         student: 'text-green-400'
     };
 
+    const handleDelete = async (userId: string, userName: string) => {
+        if (!window.confirm(`Sei sicuro di voler rimuovere ${userName} dal team? \nQuesta azione rimuoverà il loro accesso allo studio e CANCELLERÀ il loro account.`)) {
+            return;
+        }
+
+        if (!studioId) return;
+
+        try {
+            await api.settings.removeMember(userId, studioId);
+            setMembers(prev => prev.filter(m => m.id !== userId));
+        } catch (err) {
+            console.error('Failed to remove member:', err);
+            alert('Errore durante la rimozione del membro.');
+        }
+    };
+
     return (
         <div className="grid grid-cols-1 gap-4">
             {members.map(member => (
-                <div key={member.id} className="flex items-center justify-between p-4 bg-bg-tertiary rounded-lg border border-border">
+                <div key={member.id} className="flex items-center justify-between p-4 bg-bg-tertiary rounded-lg border border-border group">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-full bg-bg-primary flex items-center justify-center font-bold text-lg text-white">
                             {member.full_name?.charAt(0).toUpperCase()}
@@ -216,9 +232,22 @@ const TeamList: React.FC<{ studioId?: string }> = ({ studioId }) => {
                             </div>
                         </div>
                     </div>
-                    <span className={`text-xs uppercase px-2 py-1 rounded-md font-medium bg-white/5 ${roleColors[member.role?.toLowerCase()] || 'text-gray-400'}`}>
-                        {member.role}
-                    </span>
+                    <div className="flex items-center gap-4">
+                        <span className={`text-xs uppercase px-2 py-1 rounded-md font-medium bg-white/5 ${roleColors[member.role?.toLowerCase()] || 'text-gray-400'}`}>
+                            {member.role}
+                        </span>
+
+                        {/* Cannot delete self or Owner if I am just a manager (Logic handled by parent usually, but here assumes Owner view) */}
+                        {member.role !== 'owner' && (
+                            <button
+                                onClick={() => handleDelete(member.id, member.full_name)}
+                                className="p-2 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"
+                                title="Rimuovi dal Team"
+                            >
+                                <Trash2 size={18} />
+                            </button>
+                        )}
+                    </div>
                 </div>
             ))}
         </div>

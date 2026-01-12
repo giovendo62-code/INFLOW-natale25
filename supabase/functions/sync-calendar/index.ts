@@ -73,18 +73,18 @@ serve(async (req) => {
                 }
 
                 // Find or Create Placeholder Client for this Studio
-                let clientId = '00000000-0000-0000-0000-000000000000'; // Default fallback
+                let clientId: string | null = null;
 
-                // Try to find a client named "Google Calendar" for this studio
-                const { data: placeholderClient } = await supabase
+                // FIX: use limit(1) to avoid 'multiple rows' error if duplicates exist
+                const { data: placeholderClients, error: findError } = await supabase
                     .from('clients')
                     .select('id')
                     .eq('studio_id', userData.studio_id)
                     .eq('full_name', 'Google Calendar Import')
-                    .maybeSingle();
+                    .limit(1);
 
-                if (placeholderClient) {
-                    clientId = placeholderClient.id;
+                if (placeholderClients && placeholderClients.length > 0) {
+                    clientId = placeholderClients[0].id;
                 } else {
                     // Create it
                     const { data: newClient, error: createClientError } = await supabase
@@ -101,11 +101,23 @@ serve(async (req) => {
 
                     if (!createClientError && newClient) {
                         clientId = newClient.id;
-                        logs.push(`Created placeholder client for Studio ${userData.studio_id}`);
+                        logs.push(`Created new placeholder client for Studio ${userData.studio_id}`);
                     } else {
-                        logs.push(`Failed to create placeholder client: ${createClientError?.message}. Using fallback.`);
-                        // If fallback is also missing, next insert will fail.
+                        logs.push(`Failed to create placeholder client: ${createClientError?.message}.`);
+                        // Try to find it again, maybe race condition created it
+                        const { data: retryClients } = await supabase
+                            .from('clients')
+                            .select('id')
+                            .eq('studio_id', userData.studio_id)
+                            .eq('full_name', 'Google Calendar Import')
+                            .limit(1);
+                        if (retryClients && retryClients.length > 0) clientId = retryClients[0].id;
                     }
+                }
+
+                if (!clientId) {
+                    logs.push(`CRITICAL: Could not define a valid Client ID for Google Events. Skipping Sync for ${artistId}.`);
+                    continue; // Skip this artist to prevent crashes
                 }
 
                 for (const event of events) {
@@ -128,10 +140,10 @@ serve(async (req) => {
                         }).eq('id', existing.id);
                         syncDetails.updated++;
                     } else {
-                        await supabase.from('appointments').insert({
+                        const { error: insertError } = await supabase.from('appointments').insert({
                             studio_id: userData.studio_id,
                             artist_id: artistId,
-                            client_id: clientId,
+                            client_id: clientId, // Now guaranteed to be valid UUID or we skipped
                             service_name: event.summary || 'Google Event',
                             start_time: startTime,
                             end_time: endTime,
@@ -139,12 +151,17 @@ serve(async (req) => {
                             notes: `Synced from Google Calendar: ${event.description || ''}`,
                             google_event_id: event.id
                         });
-                        syncDetails.inserted++;
+                        if (insertError) {
+                            console.error('Insert Error', insertError);
+                            syncDetails.skipped_error++;
+                        } else {
+                            syncDetails.inserted++;
+                        }
                     }
                 }
             }
             totalSynced += syncDetails.inserted + syncDetails.updated;
-            logs.push(`Sync Result for ${user_id}: +${syncDetails.inserted} new, ~${syncDetails.updated} updated, -${syncDetails.skipped_allday} all-day skipped.`);
+            logs.push(`Sync Result: +${syncDetails.inserted} new, ~${syncDetails.updated} updated.`);
         }
 
         return new Response(JSON.stringify({
