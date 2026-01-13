@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Menu, X, LogOut, Users, MessageCircle, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, Calendar, Menu, X, LogOut, Users, MessageCircle, ClipboardList, QrCode } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../features/auth/AuthContext';
 import { NAV_ITEMS } from './Sidebar';
@@ -12,7 +12,11 @@ export const MobileNav: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [studio, setStudio] = useState<Studio | null>(null);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [isShareOpen, setIsShareOpen] = useState(false);
     const location = useLocation();
+
+    // App URL for sharing
+    const appUrl = "https://inflow-natale25.vercel.app/login";
 
     if (!user) return null;
 
@@ -286,6 +290,17 @@ export const MobileNav: React.FC = () => {
 
                             <button
                                 onClick={() => {
+                                    setIsShareOpen(true);
+                                    closeMenu();
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors"
+                            >
+                                <QrCode size={20} />
+                                <span>Condividi App</span>
+                            </button>
+
+                            <button
+                                onClick={() => {
                                     signOut();
                                     closeMenu();
                                 }}
@@ -298,6 +313,43 @@ export const MobileNav: React.FC = () => {
                     </div>
                 </>
             )}
+
+            {/* Full Screen Share Overlay */}
+            {
+                isShareOpen && (
+                    <div className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => setIsShareOpen(false)}>
+                        <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center relative shadow-2xl transform transition-all scale-100" onClick={e => e.stopPropagation()}>
+                            <button
+                                onClick={() => setIsShareOpen(false)}
+                                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors p-2"
+                            >
+                                <X size={24} />
+                            </button>
+
+                            <h2 className="text-2xl font-bold text-gray-900 mb-2">Condividi InkFlow</h2>
+                            <p className="text-gray-500 mb-6">Fai scansionare questo codice per accedere all'applicazione</p>
+
+                            <div className="bg-gray-100 p-4 rounded-xl inline-block mb-6">
+                                <img
+                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(appUrl)}`}
+                                    alt="App QR Code"
+                                    className="w-64 h-64 mix-blend-multiply"
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-2">
+                                <p className="text-xs text-gray-400 break-all bg-gray-50 p-2 rounded">{appUrl}</p>
+                                <button
+                                    onClick={() => setIsShareOpen(false)}
+                                    className="w-full py-3 bg-gray-900 hover:bg-black text-white rounded-xl font-medium transition-colors"
+                                >
+                                    Chiudi
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
         </>
     );
 };
