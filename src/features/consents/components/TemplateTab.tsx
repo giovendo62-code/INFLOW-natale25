@@ -1,9 +1,27 @@
 
 import React, { useState, useEffect } from 'react';
 import { Save, AlertTriangle, History } from 'lucide-react';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import { api } from '../../../services/api';
 import type { ConsentTemplate } from '../../../services/types';
 import { useAuth } from '../../auth/AuthContext';
+
+// Custom toolbar options
+const modules = {
+    toolbar: [
+        [{ 'header': [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+        ['clean']
+    ],
+};
+
+const formats = [
+    'header',
+    'bold', 'italic', 'underline', 'strike',
+    'list', 'bullet'
+];
 
 export const TemplateTab: React.FC = () => {
     const [template, setTemplate] = useState<ConsentTemplate | null>(null);
@@ -81,13 +99,17 @@ export const TemplateTab: React.FC = () => {
                     </div>
 
                     <div className="mb-4">
-                        <label className="block text-sm font-medium text-text-muted mb-1">Contenuto (HTML supportato)</label>
-                        <textarea
-                            value={content}
-                            onChange={(e) => setContent(e.target.value)}
-                            className="w-full h-[500px] bg-bg-tertiary border border-border rounded px-3 py-2 text-white font-mono text-sm focus:outline-none focus:border-accent resize-none"
-                            placeholder="Inserisci il testo del consenso..."
-                        />
+                        <label className="block text-sm font-medium text-text-muted mb-1">Contenuto (Editor Visuale)</label>
+                        <div className="bg-white rounded-lg text-black overflow-hidden h-[500px] flex flex-col">
+                            <ReactQuill
+                                theme="snow"
+                                value={content}
+                                onChange={setContent}
+                                modules={modules}
+                                formats={formats}
+                                className="h-full flex flex-col"
+                            />
+                        </div>
                         <p className="text-xs text-text-muted mt-2">
                             Variabili disponibili: {'{{nome}}, {{cognome}}, {{data_nascita}}, {{codice_fiscale}}, {{studio_nome}}'}
                         </p>
