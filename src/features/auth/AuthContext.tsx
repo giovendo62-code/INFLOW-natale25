@@ -76,7 +76,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
             // Add a timeout race to detect hangs
             const timeoutPromise = new Promise<null>((_, reject) =>
-                setTimeout(() => reject(new Error('getCurrentUser timed out')), 10000)
+                setTimeout(() => reject(new Error('getCurrentUser timed out')), 20000)
             );
 
             const userPromise = api.auth.getCurrentUser();
