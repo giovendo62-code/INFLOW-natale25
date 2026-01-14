@@ -43,7 +43,9 @@ export const LoginPage: React.FC = () => {
             if (activeTab === 'login' && (err.message.includes('Invalid login credentials') || err.status === 400)) {
                 setError('Credenziali non valide. Se non hai ancora un account, registrati nella scheda "Crea nuovo account".');
             } else {
-                setError(err.message || 'Autenticazione fallita. Riprova.');
+                // Show more details for debugging
+                const detail = err.message || JSON.stringify(err);
+                setError(`Errore: ${detail} (Status: ${err.status || 'N/A'})`);
             }
         } finally {
             setLoading(false);
