@@ -52,7 +52,11 @@ export const MessageEditor: React.FC<MessageEditorProps> = ({ data, onChange, on
             setAiOptions(options);
         } catch (error: any) {
             console.error('AI Generation failed:', error);
-            alert('Errore AI: ' + (error.message || JSON.stringify(error)));
+            let msg = error.message || JSON.stringify(error);
+            if (msg.includes('non-2xx') || msg.includes('Failed to fetch')) {
+                msg = 'Errore di connessione o Chiave API mancante. Verifica che la chiave sia configurata o inseriscila manualmente.';
+            }
+            alert('Errore AI: ' + msg);
         } finally {
             setGenerating(false);
         }
