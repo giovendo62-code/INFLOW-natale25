@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, Mail, Phone, MessageCircle, Megaphone, QrCode, X, Copy, Check, Star, Filter, ExternalLink, Trash2, CheckSquare, Square } from 'lucide-react';
+import { Search, Plus, Mail, Phone, MessageCircle, Megaphone, QrCode, X, Copy, Check, Star, Filter, ExternalLink, Trash2, CheckSquare, Square, RefreshCw, Loader2 } from 'lucide-react';
 import { api } from '../../services/api';
 import type { Client } from '../../services/types';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 
 import { GoogleSheetsSyncModal } from './components/GoogleSheetsSyncModal';
+import { useGoogleSheetsSync } from './hooks/useGoogleSheetsSync';
 import { ReviewRequestModal } from '../../components/ReviewRequestModal';
 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -28,6 +29,17 @@ export const ClientsList: React.FC = () => {
     const [showImport, setShowImport] = useState(false);
     const [modalTab, setModalTab] = useState<'import' | 'export' | 'config'>('import');
     const [copied, setCopied] = useState(false);
+
+    // Google Sync Hook
+    const { isSyncing, syncClients, hasConfig, stats: syncStats } = useGoogleSheetsSync();
+
+    // Effect to refresh query when sync is done
+    React.useEffect(() => {
+        if (syncStats && syncStats.success > 0) {
+            queryClient.invalidateQueries({ queryKey: ['clients', user?.studio_id] });
+            alert(`Sincronizzazione completata: ${syncStats.success} nuovi clienti aggiunti.`);
+        }
+    }, [syncStats, queryClient, user?.studio_id]);
 
     // Filters State
     const [showFilters, setShowFilters] = useState(false);
@@ -198,6 +210,19 @@ export const ClientsList: React.FC = () => {
                                         title="Importa da Google Sheets"
                                     >
                                         <span className="hidden lg:inline">Importa Google</span>
+                                    </button>
+
+                                    <button
+                                        onClick={syncClients}
+                                        disabled={!hasConfig || isSyncing}
+                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-colors whitespace-nowrap ${hasConfig
+                                                ? 'bg-green-600/10 border border-green-600/20 hover:bg-green-600/20 text-green-500'
+                                                : 'bg-gray-500/10 border border-gray-500/20 text-gray-500 cursor-not-allowed opacity-50'
+                                            }`}
+                                        title={hasConfig ? "Aggiorna da Google Sheets (Usa configurazione salvata)" : "Configura prima un foglio Google"}
+                                    >
+                                        {isSyncing ? <Loader2 size={18} className="animate-spin" /> : <RefreshCw size={18} />}
+                                        <span className="hidden lg:inline">Aggiorna</span>
                                     </button>
 
                                     <button
