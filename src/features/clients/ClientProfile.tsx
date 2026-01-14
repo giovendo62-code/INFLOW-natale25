@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Mail, Phone, Calendar, Image, FileText, Activity, X, Save, Tag, MapPin, CreditCard, ClipboardList } from 'lucide-react';
 import { api } from '../../services/api';
 import { supabase } from '../../lib/supabase';
-import type { Client, WaitlistEntry } from '../../services/types';
+import type { Client, WaitlistEntry, ClientConsent } from '../../services/types';
 import clsx from 'clsx';
 
 import { Trash2, Eye } from 'lucide-react';
@@ -21,6 +21,8 @@ export const ClientProfile: React.FC = () => {
     const { user } = useAuth();
     const [client, setClient] = useState<Client | null>(null);
     const [waitlistEntry, setWaitlistEntry] = useState<WaitlistEntry | null>(null);
+    const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [consents, setConsents] = useState<ClientConsent[]>([]);
     const [activeTab, setActiveTab] = useState('gallery'); // Default to Gallery
     const [loading, setLoading] = useState(true);
 
@@ -57,6 +59,13 @@ export const ClientProfile: React.FC = () => {
         try {
             const data = await api.clients.getById(clientId);
             setClient(data);
+
+            // Fetch History & Consents
+            const history = await api.appointments.listByClient(clientId);
+            setAppointments(history);
+
+            const clientConsents = await api.consents.listClientConsents(clientId);
+            setConsents(clientConsents);
 
             // Fetch Waitlist Entry if exists
             if (data?.id) {
@@ -603,8 +612,35 @@ export const ClientProfile: React.FC = () => {
                     )}
 
                     {activeTab === 'history' && (
-                        <div className="bg-bg-secondary rounded-lg border border-border p-8 text-center text-text-muted">
-                            Storico appuntamenti non disponibile
+                        <div className="space-y-4">
+                            {appointments.length > 0 ? (
+                                appointments.map((apt) => (
+                                    <div key={apt.id} className="bg-bg-secondary rounded-lg border border-border p-4 flex justify-between items-center">
+                                        <div>
+                                            <h4 className="font-bold text-white">{apt.service_name}</h4>
+                                            <p className="text-sm text-text-muted">
+                                                {new Date(apt.start_time).toLocaleDateString()} - {new Date(apt.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className={clsx(
+                                                "px-2 py-1 rounded text-xs font-medium",
+                                                apt.status === 'COMPLETED' ? "bg-green-500/10 text-green-500" :
+                                                    apt.status === 'CONFIRMED' ? "bg-blue-500/10 text-blue-500" :
+                                                        "bg-gray-500/10 text-gray-400"
+                                            )}>
+                                                {apt.status}
+                                            </span>
+                                            {apt.price && <p className="text-sm font-bold text-white mt-1">€ {apt.price}</p>}
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="bg-bg-secondary rounded-lg border border-border p-8 text-center text-text-muted">
+                                    <Calendar size={48} className="mx-auto mb-4 opacity-20" />
+                                    <p>Nessun appuntamento passato.</p>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -654,9 +690,48 @@ export const ClientProfile: React.FC = () => {
                     }
                     {
                         activeTab === 'consents' && (
-                            <div className="bg-bg-secondary rounded-lg border border-border p-8 text-center text-text-muted">
-                                <FileText size={48} className="mx-auto mb-4 opacity-20" />
-                                <p>Nessun consenso firmato.</p>
+                            <div className="space-y-4">
+                                {consents.length > 0 ? (
+                                    consents.map((c) => (
+                                        <div key={c.id} className="bg-bg-secondary rounded-lg border border-border p-4 flex justify-between items-center group">
+                                            <div className="flex items-center gap-4">
+                                                <div className="p-2 bg-accent/10 rounded-lg text-accent">
+                                                    <FileText size={24} />
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-bold text-white">Consenso Firmato v{c.template_version}</h4>
+                                                    <p className="text-sm text-text-muted">Firmato il {new Date(c.signed_at).toLocaleDateString()} alle {new Date(c.signed_at).toLocaleTimeString()}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                {c.pdf_url && (
+                                                    <button
+                                                        onClick={() => window.open(c.pdf_url, '_blank')}
+                                                        className="p-2 bg-bg-tertiary hover:bg-white/10 rounded-lg text-white transition-colors"
+                                                        title="Scarica PDF"
+                                                    >
+                                                        <FileText size={18} /> PDF
+                                                    </button>
+                                                )}
+                                                {/* Fallback to signature view if no PDF */}
+                                                {!c.pdf_url && c.signature_url && (
+                                                    <button
+                                                        onClick={() => window.open(c.signature_url, '_blank')}
+                                                        className="p-2 bg-bg-tertiary hover:bg-white/10 rounded-lg text-white transition-colors"
+                                                        title="Vedi Firma"
+                                                    >
+                                                        <Image size={18} /> Firma
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="bg-bg-secondary rounded-lg border border-border p-8 text-center text-text-muted">
+                                        <FileText size={48} className="mx-auto mb-4 opacity-20" />
+                                        <p>Nessun consenso firmato.</p>
+                                    </div>
+                                )}
                             </div>
                         )
                     }

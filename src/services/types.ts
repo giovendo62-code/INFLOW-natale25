@@ -224,6 +224,7 @@ export interface IRepository {
     create(data: Omit<Appointment, 'id'>): Promise<Appointment>;
     update(id: string, data: Partial<Appointment>): Promise<Appointment>;
     delete(id: string): Promise<void>;
+    listByClient(clientId: string): Promise<Appointment[]>;
   };
   clients: {
     list(search?: string, studioId?: string): Promise<Client[]>;

@@ -393,6 +393,16 @@ export class SupabaseRepository implements IRepository {
                     });
                 }
             }
+        },
+        listByClient: async (clientId: string): Promise<Appointment[]> => {
+            const { data, error } = await supabase
+                .from('appointments')
+                .select('*, client:clients(*)')
+                .eq('client_id', clientId)
+                .order('start_time', { ascending: false });
+
+            if (error) throw error;
+            return data as Appointment[];
         }
     };
 
