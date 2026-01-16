@@ -382,6 +382,10 @@ export class MockRepository implements IRepository {
 
             return apts;
         },
+        get: async (id: string): Promise<Appointment | null> => {
+            await new Promise(resolve => setTimeout(resolve, 200));
+            return MOCK_APPOINTMENTS.find(a => a.id === id) || null;
+        },
         create: async (data: Omit<Appointment, 'id'>): Promise<Appointment> => {
             const newApt: Appointment = { ...data, id: `apt-${Date.now()}` };
             MOCK_APPOINTMENTS.push(newApt);

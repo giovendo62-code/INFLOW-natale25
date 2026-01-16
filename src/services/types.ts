@@ -221,6 +221,7 @@ export interface IRepository {
   };
   appointments: {
     list(start: Date, end: Date, artistId?: string, studioId?: string): Promise<Appointment[]>;
+    get(id: string): Promise<Appointment | null>;
     create(data: Omit<Appointment, 'id'>): Promise<Appointment>;
     update(id: string, data: Partial<Appointment>): Promise<Appointment>;
     delete(id: string): Promise<void>;
