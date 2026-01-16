@@ -16,6 +16,11 @@ export function ReviewRequestModal({ isOpen, onClose, clientName, clientPhone, s
     const [studioName, setStudioName] = useState<string>('InkFlow Studio');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [phone, setPhone] = useState(clientPhone || '');
+
+    useEffect(() => {
+        setPhone(clientPhone || '');
+    }, [clientPhone, isOpen]);
 
     useEffect(() => {
         if (isOpen && studioId) {
@@ -65,15 +70,15 @@ Grazie per aver scelto il ${studioName} e per il tuo supporto!`;
             return;
         }
 
-        console.log('[ReviewModal] Sending WhatsApp. Client:', clientName, 'Phone:', clientPhone, 'URL:', reviewUrl);
+        console.log('[ReviewModal] Sending WhatsApp. Client:', clientName, 'Phone:', phone, 'URL:', reviewUrl);
 
         const encodedMessage = encodeURIComponent(message);
 
         let url = `https://api.whatsapp.com/send?text=${encodedMessage}`;
 
-        if (clientPhone) {
+        if (phone) {
             // 1. Remove everything except digits
-            let cleanPhone = clientPhone.replace(/\D/g, '');
+            let cleanPhone = phone.replace(/\D/g, '');
 
             // 2. Handle Italian prefix (Special Case)
             // If it's 10 digits (e.g. 3331234567), assume IT mobile and prepend 39.
@@ -128,6 +133,22 @@ Grazie per aver scelto il ${studioName} e per il tuo supporto!`;
                     <p className="text-gray-600 dark:text-gray-300 text-center">
                         Vuoi inviare un messaggio WhatsApp a <b>{clientName}</b> per chiedere una recensione su Google?
                     </p>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            WhatsApp Telefono
+                        </label>
+                        <input
+                            type="text"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            placeholder="Es. 333 1234567"
+                            className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition-all"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">
+                            Modifica se necessario (aggiungiamo +39 auto se 10 cifre)
+                        </p>
+                    </div>
 
                     {loading ? (
                         <div className="text-center text-sm text-gray-500">Caricamento link...</div>
