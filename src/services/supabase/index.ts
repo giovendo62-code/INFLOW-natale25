@@ -181,6 +181,19 @@ export class SupabaseRepository implements IRepository {
             if (error) throw error;
             return data as Appointment[];
         },
+        get: async (id: string): Promise<Appointment | null> => {
+            const { data, error } = await supabase
+                .from('appointments')
+                .select('*, client:clients(*)')
+                .eq('id', id)
+                .single();
+
+            if (error) {
+                console.error('Error fetching appointment:', error);
+                return null;
+            }
+            return data as Appointment;
+        },
         create: async (data: Omit<Appointment, 'id'>): Promise<Appointment> => {
             console.log('[DEBUG] createAppointment called with:', JSON.stringify(data));
             const { data: newApt, error } = await supabase

@@ -74,10 +74,23 @@ export const Calendar: React.FC = () => {
                 await api.appointments.update(selectedAppointment.id, data);
 
                 // Check for completion to trigger Review Request
+                // Check for completion to trigger Review Request
                 if (data.status === 'COMPLETED' && selectedAppointment.status !== 'COMPLETED') {
-                    const clientName = selectedAppointment.client?.full_name || 'Cliente';
-                    const clientPhone = selectedAppointment.client?.phone;
-                    setReviewModalData({ isOpen: true, clientName, clientPhone, studioId: selectedAppointment.studio_id || user?.studio_id });
+                    // Fetch fresh data to ensure we have the updated client info (e.g. if client was just assigned)
+                    try {
+                        const freshApt = await api.appointments.get(selectedAppointment.id);
+                        if (freshApt) {
+                            const clientName = freshApt.client?.full_name || 'Cliente';
+                            const clientPhone = freshApt.client?.phone;
+                            setReviewModalData({ isOpen: true, clientName, clientPhone, studioId: freshApt.studio_id || user?.studio_id });
+                        }
+                    } catch (err) {
+                        console.error('Failed to fetch fresh appointment data for review modal', err);
+                        // Fallback to old data if fetch fails
+                        const clientName = selectedAppointment.client?.full_name || 'Cliente';
+                        const clientPhone = selectedAppointment.client?.phone;
+                        setReviewModalData({ isOpen: true, clientName, clientPhone, studioId: selectedAppointment.studio_id || user?.studio_id });
+                    }
                 }
             } else {
                 // Create
