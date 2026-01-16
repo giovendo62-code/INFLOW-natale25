@@ -160,6 +160,19 @@ export const StudioSettings: React.FC = () => {
                             </div>
                         </div>
                         <div>
+                            <label className="block text-sm font-medium text-text-muted mb-1">Link Report Studio</label>
+                            <div className="relative">
+                                <Globe size={18} className="absolute left-3 top-2.5 text-text-muted" />
+                                <input
+                                    type="url"
+                                    value={studio.report_url || ''}
+                                    onChange={e => setStudio({ ...studio, report_url: e.target.value })}
+                                    className="w-full bg-bg-tertiary border border-border rounded-lg pl-10 pr-4 py-2 text-text-primary focus:border-accent focus:outline-none"
+                                    placeholder="https://..."
+                                />
+                            </div>
+                        </div>
+                        <div>
                             <label className="block text-sm font-medium text-text-muted mb-1">Città</label>
                             <div className="relative">
                                 <MapPin size={18} className="absolute left-3 top-2.5 text-text-muted" />

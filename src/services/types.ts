@@ -411,6 +411,7 @@ export interface Studio {
   vat_number?: string;
   fiscal_code?: string;
   company_name?: string;
+  report_url?: string;
   google_review_url?: string;
   google_sheets_config?: {
     spreadsheet_id?: string;
