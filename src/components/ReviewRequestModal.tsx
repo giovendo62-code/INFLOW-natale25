@@ -69,22 +69,27 @@ Grazie per aver scelto il ${studioName} e per il tuo supporto!`;
 
         const encodedMessage = encodeURIComponent(message);
 
-        let url = `https://wa.me/?text=${encodedMessage}`;
+        let url = `https://api.whatsapp.com/send?text=${encodedMessage}`;
 
         if (clientPhone) {
-            // Remove everything except digits
-            const cleanPhone = clientPhone.replace(/\D/g, '');
+            // 1. Remove everything except digits
+            let cleanPhone = clientPhone.replace(/\D/g, '');
 
-            // Check if it looks like a valid phone number (at least 6 digits)
-            // If it starts with '3' (Italian mobile) and no country code, maybe prepend 39? 
-            // For now, let's just stick to raw digits. User might have stored it with +39 or 0039.
-            if (cleanPhone.length >= 6) {
-                // If it doesn't start with a country code (approximate check), maybe warn? 
-                // But WhatsApp is usually smart enough or 0039/39 overlap.
-                // Safest to just use what we have if it's long enough.
-                url = `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
+            // 2. Handle Italian prefix (Special Case)
+            // If it's 10 digits (e.g. 3331234567), assume IT mobile and prepend 39.
+            // If it's already 12 digits starting with 39 (e.g. 393331234567), leave it.
+            if (cleanPhone.length === 10) {
+                cleanPhone = '39' + cleanPhone;
+                console.log('[ReviewModal] Prepended 39 prefix:', cleanPhone);
+            }
+
+            // 3. Construct URL using robust API
+            if (cleanPhone.length >= 8) {
+                // Using api.whatsapp.com/send is more consistent than wa.me often
+                url = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodedMessage}`;
             } else {
                 console.warn('[ReviewModal] Phone number too short after cleaning:', cleanPhone);
+                // Fallback to generic link
             }
         } else {
             console.log('[ReviewModal] No phone provided, using generic link.');
