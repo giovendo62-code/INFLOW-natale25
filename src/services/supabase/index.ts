@@ -2,6 +2,23 @@ import { supabase } from '../../lib/supabase';
 
 import type { IRepository, AuthSession, User, Appointment, Client, Transaction, FinancialStats, CourseMaterial, StudentAttendance, ClientConsent, ArtistContract, PresenceLog, MarketingCampaign, WaitlistEntry, Course, Communication, CommunicationReply, ConsentTemplate, CourseEnrollment, AttendanceLog, UserRole, Studio } from '../types';
 
+// Helper to identify the studio owner for Google Sync
+const getStudioOwnerId = async (studioId: string): Promise<string | null> => {
+    try {
+        const { data } = await supabase
+            .from('studio_memberships')
+            .select('user_id')
+            .eq('studio_id', studioId)
+            .eq('role', 'owner')
+            .limit(1)
+            .maybeSingle();
+        return data?.user_id || null;
+    } catch (err) {
+        console.error('Error fetching studio owner:', err);
+        return null;
+    }
+};
+
 export class SupabaseRepository implements IRepository {
     auth = {
         signIn: async (email: string, password: string): Promise<AuthSession> => {
@@ -178,14 +195,19 @@ export class SupabaseRepository implements IRepository {
             console.log('[DEBUG] createAppointment success:', newApt);
 
             // Trigger Google Sync (Outbound)
+            // Use Studio Owner ID for sync to ensure we access the correct integration/mappings
+            const ownerId = await getStudioOwnerId(newApt.studio_id);
             const { data: { session: createSession } } = await supabase.auth.getSession();
-            if (createSession?.user?.id) {
+            // Fallback to current user if owner not found (though unlikely for valid studio)
+            const syncUserId = ownerId || createSession?.user?.id;
+
+            if (syncUserId) {
                 // Non-blocking call
                 supabase.functions.invoke('push-to-google-calendar', {
                     body: {
                         action: 'create',
                         appointment: newApt,
-                        user_id: createSession.user.id
+                        user_id: syncUserId
                     }
                 }).then(({ data, error: syncError }) => {
                     if (syncError) {
@@ -361,14 +383,18 @@ export class SupabaseRepository implements IRepository {
             }
 
             // Trigger Google Sync (Outbound)
+            // Use Studio Owner ID
+            const ownerId = await getStudioOwnerId(updated.studio_id);
             const { data: { session: updateSession } } = await supabase.auth.getSession();
-            if (updateSession?.user?.id) {
+            const syncUserId = ownerId || updateSession?.user?.id;
+
+            if (syncUserId) {
                 // Non-blocking call
                 supabase.functions.invoke('push-to-google-calendar', {
                     body: {
                         action: 'update',
                         appointment: updated,
-                        user_id: updateSession.user.id
+                        user_id: syncUserId
                     }
                 }).then(({ data, error: syncError }) => {
                     if (syncError) {
@@ -398,13 +424,16 @@ export class SupabaseRepository implements IRepository {
 
             // Trigger Google Sync (Outbound)
             if (apt) {
+                const ownerId = await getStudioOwnerId(apt.studio_id);
                 const { data: { session: deleteSession } } = await supabase.auth.getSession();
-                if (deleteSession?.user?.id) {
+                const syncUserId = ownerId || deleteSession?.user?.id;
+
+                if (syncUserId) {
                     supabase.functions.invoke('push-to-google-calendar', {
                         body: {
                             action: 'delete',
                             appointment: apt,
-                            user_id: deleteSession.user.id
+                            user_id: syncUserId
                         }
                     }).then(({ data, error: syncError }) => {
                         if (syncError) {
