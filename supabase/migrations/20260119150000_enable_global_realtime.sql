@@ -1,5 +1,5 @@
--- Enable Realtime for all key application tables
--- This ensures that any change (INSERT, UPDATE, DELETE) is broadcast to connected clients
+-- Enable Realtime for all key application tables (Idempotent Version)
+-- This script checks if a table is already in the publication before adding it
 
 DO $$
 DECLARE
@@ -14,22 +14,36 @@ DECLARE
         'tasks',
         'artist_contracts',
         'chat_messages',
-        'notifications'
+        'notifications',
+        'waitlist_entries'
     ];
 BEGIN
-    -- Enable replication for each table if it exists
+    -- Enable replication for each table
     FOREACH table_name IN ARRAY tables LOOP
         BEGIN
-            -- Check if table exists
+            -- 1. Check if table exists in public schema
             IF EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = table_name) THEN
-                -- Set replica identification to FULL (good for updates)
+                
+                -- 2. Set replica identity to FULL (safe to run multiple times)
                 EXECUTE format('ALTER TABLE public.%I REPLICA IDENTITY FULL;', table_name);
-                -- Add to publication
-                EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I;', table_name);
+                
+                -- 3. Add to publication ONLY IF NOT ALREADY THERE
+                IF NOT EXISTS (
+                    SELECT 1 
+                    FROM pg_publication_tables 
+                    WHERE pubname = 'supabase_realtime' 
+                    AND schemaname = 'public' 
+                    AND tablename = table_name
+                ) THEN
+                    EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I;', table_name);
+                    RAISE NOTICE 'Added % to realtime publication', table_name;
+                ELSE
+                    RAISE NOTICE '% is already in realtime publication', table_name;
+                END IF;
+
             END IF;
         EXCEPTION WHEN OTHERS THEN
-            -- Ignore errors (e.g. if already in publication)
-            RAISE NOTICE 'Could not enable realtime for %: %', table_name, SQLERRM;
+            RAISE NOTICE 'Error processing %: %', table_name, SQLERRM;
         END;
     END LOOP;
 END $$;
