@@ -6,6 +6,7 @@ import { Search, Filter, QrCode, CheckCircle, Clock, UserPlus, ArrowUpRight, Che
 import clsx from 'clsx';
 import { useAuth } from '../auth/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRealtime } from '../../hooks/useRealtime';
 
 export const WaitlistManager: React.FC = () => {
     const { user } = useAuth();
@@ -37,6 +38,12 @@ export const WaitlistManager: React.FC = () => {
         queryFn: () => api.waitlist.list(user?.studio_id || 'studio-1'),
         enabled: !!user?.studio_id,
         staleTime: 1000 * 60 * 5, // 5 minutes
+    });
+
+    // Enable Realtime Updates
+    useRealtime('waitlist_entries', () => {
+        console.log('[WaitlistManager] Realtime update detected. Invalidating query...');
+        queryClient.invalidateQueries({ queryKey: ['waitlist', user?.studio_id] });
     });
 
     const handleStatusUpdate = async (id: string, status: WaitlistEntry['status'], isUndo = false) => {
