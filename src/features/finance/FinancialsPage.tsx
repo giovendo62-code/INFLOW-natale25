@@ -17,6 +17,7 @@ import { it } from 'date-fns/locale';
 import clsx from 'clsx';
 import { useAuth } from '../auth/AuthContext';
 import { useLayoutStore } from '../../stores/layoutStore';
+import { useRealtime } from '../../hooks/useRealtime';
 
 export const FinancialsPage: React.FC = () => {
     const { user } = useAuth();
@@ -50,6 +51,15 @@ export const FinancialsPage: React.FC = () => {
             loadData();
         }
     }, [user, dateRange]);
+
+    // Enable Realtime Updates
+    useRealtime('transactions', () => {
+        loadData();
+    });
+
+    useRealtime('recurring_expenses', () => {
+        loadData();
+    });
 
     const loadData = async () => {
         setLoading(true);
