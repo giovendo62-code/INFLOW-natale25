@@ -302,7 +302,7 @@ export const WaitlistManager: React.FC = () => {
                 )}
 
                 {/* Mobile Dropdown Menu for Status */}
-                <div className="lg:hidden mb-6">
+                <div className="xl:hidden mb-6">
                     <div className="relative bg-bg-secondary border border-border rounded-lg p-2">
                         <select
                             value={activeTab}
@@ -326,7 +326,7 @@ export const WaitlistManager: React.FC = () => {
                 </div>
 
                 {/* Desktop Tabs */}
-                <div className="hidden lg:flex border-b border-border mb-6 w-full min-w-0">
+                <div className="hidden xl:flex border-b border-border mb-6 w-full min-w-0">
                     <button
                         onClick={() => setActiveTab('PENDING')}
                         className={clsx(
@@ -467,7 +467,7 @@ export const WaitlistManager: React.FC = () => {
                 </div>
 
                 {/* Desktop Table View */}
-                <div className="hidden lg:block bg-bg-secondary rounded-xl border border-border overflow-x-auto">
+                <div className="hidden xl:block bg-bg-secondary rounded-xl border border-border overflow-x-auto">
                     <table className="w-full text-left min-w-[800px]">
                         <thead className="bg-bg-tertiary border-b border-border text-xs uppercase text-text-muted">
                             <tr>
@@ -579,7 +579,7 @@ export const WaitlistManager: React.FC = () => {
                 </div>
 
                 {/* Mobile Card View */}
-                <div className="lg:hidden space-y-4">
+                <div className="xl:hidden space-y-4">
                     {loading ? (
                         <div className="p-8 text-center text-text-muted">Caricamento...</div>
                     ) : visibleEntries.length === 0 ? (
