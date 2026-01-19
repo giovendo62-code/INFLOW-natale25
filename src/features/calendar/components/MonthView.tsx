@@ -93,6 +93,11 @@ export const MonthView: React.FC<MonthViewProps> = ({
                                         <div
                                             key={apt.id}
                                             onClick={(e) => {
+                                                // On mobile, clicking an appointment should navigate to Day View (handled by parent bubbling)
+                                                // instead of opening the appointment details.
+                                                if (window.innerWidth < 768) {
+                                                    return;
+                                                }
                                                 e.stopPropagation();
                                                 onAppointmentClick(apt);
                                             }}
