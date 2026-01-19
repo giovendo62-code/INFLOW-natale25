@@ -1,16 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     LayoutDashboard, Users, Calendar, Settings, TrendingUp, AlertCircle,
     Clock, CheckCircle, XCircle, Plus, ChevronRight, Bell, Search,
-    MessageSquare, DollarSign, Wallet
+    MessageSquare, DollarSign, Wallet, FileText, PlayCircle, BookOpen,
+    Share2, Eye, EyeOff, X, UserCheck
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { StatsCard } from './components/StatsCard';
 import { api } from '../../services/api';
 import { useRealtime } from '../../hooks/useRealtime';
-import type { Appointment, DashboardStats, User as StudioUser } from '../../services/types';
-import { format, isToday, parseISO, startOfDay, endOfDay } from 'date-fns';
+import type {
+    Appointment,
+    DashboardStats,
+    User as StudioUser,
+    ArtistContract,
+    Studio,
+    Course,
+    CourseEnrollment
+} from '../../services/types';
+import { format, isToday, parseISO, startOfDay, endOfDay, addWeeks, endOfWeek, isSameWeek } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { useLayoutStore } from '../../stores/layoutStore';
 import clsx from 'clsx';
@@ -18,68 +27,139 @@ import clsx from 'clsx';
 export const Dashboard: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [loading, setLoading] = React.useState(true);
+    const { isPrivacyMode, togglePrivacyMode } = useLayoutStore();
+
+    // -- State Definitions --
+    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState<DashboardStats>({
+        revenue_today: 0,
+        revenue_month: 0,
+        waitlist_count: 0,
+        staff_present: 0,
+        staff_total: 0
+    });
+
+    // Artist/Owner State
+    const [appointments, setAppointments] = useState<Appointment[]>([]);
+    const [contract, setContract] = useState<ArtistContract | null>(null);
+    const [studio, setStudio] = useState<Studio | null>(null);
+
+    // Student State
+    const [studentCourse, setStudentCourse] = useState<Course | null>(null);
+    const [studentEnrollment, setStudentEnrollment] = useState<CourseEnrollment | null>(null);
+
+    // UI State
+    const [isShareOpen, setIsShareOpen] = useState(false);
+    const [isTermsViewOpen, setIsTermsViewOpen] = useState(false);
+    const [viewTermsContent, setViewTermsContent] = useState('');
 
     if (!user) return <div className="p-8 text-center text-white">Caricamento utente...</div>;
 
-    React.useEffect(() => {
-        const loadDashboardData = async () => {
-            try {
+    // -- Data Loading Logic --
+    const loadDashboardData = useCallback(async () => {
+        try {
+            // 1. Student Data
+            if (user.role === 'STUDENT' || user.role === 'student') {
+                const courses = await api.academy.listCourses();
+                const enrolledCourse = courses.find(c => c.student_ids.includes(user.id));
 
-
-                if (user.role === 'STUDENT' || user.role === 'student') {
-                    // Fetch student course
-                    const courses = await api.academy.listCourses();
-                    const enrolledCourse = courses.find(c => c.student_ids.includes(user.id));
-
-                    if (enrolledCourse) {
-                        setStudentCourse(enrolledCourse);
-                        const enroll = await api.academy.getEnrollment(enrolledCourse.id, user.id);
-                        setStudentEnrollment(enroll);
-                    }
+                if (enrolledCourse) {
+                    setStudentCourse(enrolledCourse);
+                    const enroll = await api.academy.getEnrollment(enrolledCourse.id, user.id);
+                    setStudentEnrollment(enroll);
                 }
-
-                if (user.studio_id) {
-                    const s = await api.settings.getStudio(user.studio_id);
-                    setStudio(s);
-                    // Pre-load terms if student for the view modal
-                    if (s && (user.role === 'STUDENT' || user.role === 'student') && s.academy_terms) {
-                        setViewTermsContent(s.academy_terms);
-                    }
-                }
-
-                const today = startOfDay(new Date());
-                const endNextWeek = endOfWeek(addWeeks(today, 1), { weekStartsOn: 1 });
-
-                // Pass user.studio_id to filter by studio
-                // If user is ARTIST, also pass user.id as artistId (3rd arg) to filter their appointments
-                const isArtist = user.role === 'ARTIST' || user.role === 'artist';
-                if (isArtist) {
-                    const c = await api.artists.getContract(user.id);
-                    setContract(c);
-                }
-
-                const artistIdFilter = isArtist ? user.id : undefined;
-                const appts = await api.appointments.list(today, endNextWeek, artistIdFilter, user.studio_id);
-
-                const enhancedAppts = await Promise.all(appts.map(async (appt) => {
-                    if (appt.client) return appt;
-                    const client = await api.clients.getById(appt.client_id);
-                    return { ...appt, client: client || undefined };
-                }));
-
-                enhancedAppts.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-                setAppointments(enhancedAppts);
-            } catch (error) {
-                console.error('Error loading dashboard data:', error);
-            } finally {
-                setLoading(false);
             }
-        };
 
-        loadDashboardData();
+            // 2. Studio Data & Terms
+            if (user.studio_id) {
+                const s = await api.settings.getStudio(user.studio_id);
+                setStudio(s);
+                if (s && (user.role === 'STUDENT' || user.role === 'student') && s.academy_terms) {
+                    setViewTermsContent(s.academy_terms);
+                }
+            }
+
+            // 3. Appointments & Contract
+            const today = startOfDay(new Date());
+            const endNextWeek = endOfWeek(addWeeks(today, 1), { weekStartsOn: 1 });
+
+            const isArtist = user.role === 'ARTIST' || user.role === 'artist';
+            if (isArtist) {
+                const c = await api.artists.getContract(user.id);
+                setContract(c);
+            }
+
+            const artistIdFilter = isArtist ? user.id : undefined;
+            const appts = await api.appointments.list(today, endNextWeek, artistIdFilter, user.studio_id);
+
+            const enhancedAppts = await Promise.all(appts.map(async (appt) => {
+                if (appt.client) return appt;
+                const client = await api.clients.getById(appt.client_id);
+                return { ...appt, client: client || undefined };
+            }));
+
+            enhancedAppts.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+            setAppointments(enhancedAppts);
+
+            // 4. Stats (Owner/Manager)
+            if (user.role === 'owner' || user.role === 'STUDIO_ADMIN' || user.role === 'MANAGER') {
+                const fStats = await api.financials.getStats(new Date(), user.studio_id);
+
+                let wCount = 0;
+                if (user.studio_id) {
+                    const wList = await api.waitlist.list(user.studio_id);
+                    wCount = wList.filter(w => w.status === 'PENDING').length;
+                }
+
+                let sPresent = 0;
+                let sTotal = 0;
+                if (user.studio_id) {
+                    const team = await api.settings.listTeamMembers(user.studio_id);
+                    sTotal = team.length;
+                    sPresent = team.length; // Mock
+                }
+
+                setStats({
+                    revenue_today: fStats.revenue_today,
+                    revenue_month: fStats.revenue_month,
+                    waitlist_count: wCount,
+                    staff_present: sPresent,
+                    staff_total: sTotal
+                });
+            }
+
+        } catch (error) {
+            console.error('Error loading dashboard data:', error);
+        } finally {
+            setLoading(false);
+        }
     }, [user.id, user.role, user.studio_id]);
 
+    // -- Effects --
+    useEffect(() => {
+        loadDashboardData();
+    }, [loadDashboardData]);
+
+    // -- Realtime Hooks --
+    useRealtime('appointments', () => {
+        console.log('Realtime: refreshing appointments');
+        loadDashboardData();
+    });
+
+    useRealtime('waitlist_entries', () => {
+        if (user.role === 'owner' || user.role === 'MANAGER') {
+            loadDashboardData();
+        }
+    });
+
+    useRealtime('transactions', () => {
+        if (user.role === 'owner' || user.role === 'MANAGER') {
+            loadDashboardData();
+        }
+    });
+
+
+    // -- Helper Functions --
     const sendWhatsAppReminder = (appt: Appointment, type: 'WEEK_NOTICE' | 'CONFIRMATION') => {
         if (!appt.client?.phone) {
             alert('Numero di telefono non disponibile per questo cliente.');
@@ -89,7 +169,7 @@ export const Dashboard: React.FC = () => {
         const dateStr = format(parseISO(appt.start_time), "d MMMM", { locale: it });
         const timeStr = format(parseISO(appt.start_time), "HH:mm");
         const studioName = studio?.name || "InkFlow Studio";
-        const location = studio ? `${studio.address}, ${studio.city} ` : "Via Loreto Balatelle, 208, Acireale";
+        const location = studio ? `${studio.address}, ${studio.city}` : "Via Loreto Balatelle, 208, Acireale";
 
         let message = '';
         if (type === 'WEEK_NOTICE') {
@@ -102,55 +182,13 @@ export const Dashboard: React.FC = () => {
         window.open(`https://wa.me/${appt.client.phone.replace(/[^0-9]/g, '')}?text=${encodedMessage}`, '_blank');
     };
 
-    const [stats, setStats] = React.useState({
-        revenue_today: 0,
-        revenue_month: 0,
-        waitlist_count: 0,
-        staff_present: 0,
-        staff_total: 0
-    });
-
-    React.useEffect(() => {
-        const loadStats = async () => {
-            if (user.role === 'owner' || user.role === 'STUDIO_ADMIN' || user.role === 'MANAGER') {
-                try {
-                    const fStats = await api.financials.getStats(new Date(), user.studio_id);
-                    let wCount = 0;
-                    if (user.studio_id) {
-                        const wList = await api.waitlist.list(user.studio_id);
-                        wCount = wList.filter(w => w.status === 'PENDING').length;
-                    }
-
-                    let sPresent = 0;
-                    let sTotal = 0;
-                    if (user.studio_id) {
-                        const team = await api.settings.listTeamMembers(user.studio_id);
-                        sTotal = team.length;
-                        // Mock "Present" check for now, or check presence logs if implemented for everyone
-                        sPresent = team.length;
-                    }
-
-                    setStats({
-                        revenue_today: fStats.revenue_today,
-                        revenue_month: fStats.revenue_month,
-                        waitlist_count: wCount,
-                        staff_present: sPresent,
-                        staff_total: sTotal
-                    });
-                } catch (e) {
-                    console.error('Stats load error', e);
-                }
-            }
-        };
-        loadStats();
-    }, [user.role, user.studio_id]);
-
+    // -- Render Helpers --
     const renderAdminWidgets = () => (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <StatsCard
                 title="Incasso Oggi"
                 value={isPrivacyMode ? '••••' : `€${stats.revenue_today.toLocaleString()}`}
-                change={isPrivacyMode ? undefined : "0%"} // Calculate change if needed
+                change={isPrivacyMode ? undefined : "0%"}
                 isPositive={true}
                 icon={DollarSign}
                 color="bg-green-500"
@@ -180,11 +218,9 @@ export const Dashboard: React.FC = () => {
 
     const renderArtistWidgets = () => {
         const commissionRate = contract?.commission_rate || 50;
-        const netEarnings = isPrivacyMode ? '••••' : `€${((4200 * commissionRate) / 100).toLocaleString()}`; // TODO: Calculate real earnings
+        const netEarnings = isPrivacyMode ? '••••' : `€${((4200 * commissionRate) / 100).toLocaleString()}`; // TODO: Real calc
 
-        // Real data calculation
         const myApptsCount = appointments.length;
-
         const now = new Date();
         const nextAppt = appointments.find(a => new Date(a.start_time) > now);
         let nextApptText = 'Nessuno';
@@ -224,7 +260,7 @@ export const Dashboard: React.FC = () => {
                 <StatsCard
                     title="I Tuoi Guadagni (Netto)"
                     value={netEarnings}
-                    change={isPrivacyMode ? undefined : "8%"} // Placeholder change
+                    change={isPrivacyMode ? undefined : "8%"}
                     isPositive={true}
                     icon={TrendingUp}
                     color="bg-green-500"
@@ -291,8 +327,6 @@ export const Dashboard: React.FC = () => {
                         <p className="text-text-muted italic">Dati presenze non disponibili.</p>
                     )}
 
-
-                    {/* View Terms Button */}
                     <div className="mt-4 pt-4 border-t border-border flex justify-center">
                         <button
                             onClick={() => setIsTermsViewOpen(true)}
@@ -371,6 +405,7 @@ export const Dashboard: React.FC = () => {
                 {(user.role === 'owner' || user.role === 'STUDIO_ADMIN' || user.role === 'MANAGER') && renderAdminWidgets()}
                 {user.role === 'ARTIST' && renderArtistWidgets()}
                 {(user.role === 'STUDENT' || user.role === 'student') && renderStudentWidgets()}
+
                 {user.role !== 'STUDENT' && user.role !== 'student' && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-20">
                         <div className="lg:col-span-2 bg-bg-secondary border border-border rounded-lg p-6 min-h-[300px]">
@@ -537,6 +572,7 @@ export const Dashboard: React.FC = () => {
                     </div>
                 </div>
             )}
+
             {/* Read-Only Terms Modal */}
             {isTermsViewOpen && (
                 <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
