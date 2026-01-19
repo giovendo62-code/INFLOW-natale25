@@ -481,25 +481,29 @@ export const FinancialsPage: React.FC = () => {
                 {/* Yearly Trend Chart - Right Side (Takes more space) */}
                 <div className={clsx("bg-bg-secondary p-6 rounded-lg border border-border", isOwner ? "lg:col-span-2" : "lg:col-span-3")}>
                     <h3 className="text-lg font-bold text-text-primary mb-6">Andamento Entrate (Anno Corrente)</h3>
-                    <div className="h-64 flex items-end justify-between gap-2 px-2">
-                        {monthStats.map((val, i) => {
-                            const maxVal = Math.max(...monthStats, 1);
-                            const height = `${(val / maxVal) * 100}%`;
-                            return (
-                                <div key={i} className="w-full flex flex-col justify-end items-center gap-2 h-full group">
-                                    <div className="w-full bg-bg-tertiary hover:bg-accent/80 transition-all rounded-t-sm relative" style={{ height: height || '1px' }}>
-                                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-20 whitespace-nowrap">
-                                            {formatCurrency(val)}
+                    {/* Chart Container - Handle Scroll/Overflow */}
+                    <div className="relative">
+                        <div className="h-64 flex items-end justify-between gap-1 md:gap-2 px-2">
+                            {monthStats.map((val, i) => {
+                                const maxVal = Math.max(...monthStats, 1);
+                                const height = `${(val / maxVal) * 100}%`;
+                                return (
+                                    <div key={i} className="w-full flex-1 flex flex-col justify-end items-center h-full group">
+                                        <div className="w-full bg-bg-tertiary hover:bg-accent/80 transition-all rounded-t-sm relative" style={{ height: height || '1px' }}>
+                                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-20 whitespace-nowrap pointer-events-none">
+                                                {formatCurrency(val)}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                    <div className="flex justify-between mt-4 text-xs text-text-muted px-2 uppercase tracking-wider">
-                        {['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'].map(m => (
-                            <span key={m} className="w-full text-center">{m.substring(0, 3)}</span>
-                        ))}
+                                );
+                            })}
+                        </div>
+                        {/* Labels - Hide every second label on very small screens if needed, or just let them shrink */}
+                        <div className="flex justify-between mt-4 text-[10px] md:text-xs text-text-muted px-2 uppercase tracking-wider">
+                            {['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'].map((m, i) => (
+                                <span key={m} className={clsx("w-full text-center", i % 2 !== 0 && "hidden sm:block")}>{m.substring(0, 3)}</span>
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>
