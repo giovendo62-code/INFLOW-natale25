@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    LayoutDashboard, Users, Calendar, Settings, TrendingUp, AlertCircle,
-    Clock, CheckCircle, XCircle, Plus, ChevronRight, Bell, Search,
-    MessageSquare, DollarSign, Wallet, FileText, PlayCircle, BookOpen,
+    Users, Calendar, TrendingUp,
+    Clock, CheckCircle, ChevronRight,
+    DollarSign, FileText, PlayCircle, BookOpen,
     Share2, Eye, EyeOff, X, UserCheck
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
@@ -12,17 +12,23 @@ import { api } from '../../services/api';
 import { useRealtime } from '../../hooks/useRealtime';
 import type {
     Appointment,
-    DashboardStats,
-    User as StudioUser,
     ArtistContract,
     Studio,
     Course,
     CourseEnrollment
 } from '../../services/types';
-import { format, isToday, parseISO, startOfDay, endOfDay, addWeeks, endOfWeek, isSameWeek } from 'date-fns';
+import { format, parseISO, startOfDay, addWeeks, endOfWeek, isSameWeek } from 'date-fns';
 import { it } from 'date-fns/locale';
 import { useLayoutStore } from '../../stores/layoutStore';
 import clsx from 'clsx';
+
+interface DashboardStats {
+    revenue_today: number;
+    revenue_month: number;
+    waitlist_count: number;
+    staff_present: number;
+    staff_total: number;
+}
 
 export const Dashboard: React.FC = () => {
     const { user } = useAuth();
