@@ -7,6 +7,7 @@ import clsx from 'clsx';
 import { useAuth } from '../auth/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRealtime } from '../../hooks/useRealtime';
+import { ManualWaitlistModal } from './components/ManualWaitlistModal';
 
 export const WaitlistManager: React.FC = () => {
     const { user } = useAuth();
@@ -23,6 +24,7 @@ export const WaitlistManager: React.FC = () => {
     const [sortOrder, setSortOrder] = useState<'ASC' | 'DESC'>('DESC');
     const [showQr, setShowQr] = useState(false);
     const [copied, setCopied] = useState(false);
+    const [isManualEntryOpen, setIsManualEntryOpen] = useState(false);
 
     // Pagination State
     const [visibleCount, setVisibleCount] = useState(50);
@@ -228,6 +230,14 @@ export const WaitlistManager: React.FC = () => {
                         >
                             {copied ? <Check size={18} className="text-green-500" /> : <Link size={18} />}
                             <span className="hidden sm:inline">{copied ? 'Copiato!' : 'Copia Link'}</span>
+                        </button>
+                        <button
+                            onClick={() => setIsManualEntryOpen(true)}
+                            className="flex items-center gap-2 bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg transition-colors text-sm font-medium shadow-lg shadow-accent/20"
+                        >
+                            <UserPlus size={18} />
+                            <span className="hidden sm:inline">Inserimento Manuale</span>
+                            <span className="sm:hidden">Nuovo</span>
                         </button>
                         <button
                             onClick={() => setShowQr(!showQr)}
@@ -695,6 +705,12 @@ export const WaitlistManager: React.FC = () => {
                     </div>
                 )}
             </div>
+
+            <ManualWaitlistModal
+                isOpen={isManualEntryOpen}
+                onClose={() => setIsManualEntryOpen(false)}
+                studioId={user?.studio_id || 'studio-1'}
+            />
         </div >
     );
 };
