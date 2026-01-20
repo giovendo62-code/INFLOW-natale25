@@ -522,7 +522,16 @@ export class SupabaseRepository implements IRepository {
             }
         },
         create: async (data: Omit<Client, 'id'>): Promise<Client> => {
-            const { data: newClient, error } = await supabase.from('clients').insert(data).select().single();
+            // Sanitize input: Convert empty strings to null for unique fields to avoid constraint violations
+            const sanitizedData = {
+                ...data,
+                email: data.email?.trim() || null,
+                phone: data.phone?.trim() || null,
+                // Also helpful for other optional fields
+                fiscal_code: data.fiscal_code?.trim() || null,
+            };
+
+            const { data: newClient, error } = await supabase.from('clients').insert(sanitizedData).select().single();
             if (error) throw error;
 
             // Google Sheets Auto-Sync
@@ -597,8 +606,8 @@ export class SupabaseRepository implements IRepository {
             const { data: newClient, error } = await supabase.rpc('create_client_public', {
                 p_studio_id: data.studio_id,
                 p_full_name: data.full_name,
-                p_email: data.email,
-                p_phone: data.phone,
+                p_email: data.email?.trim() || null,
+                p_phone: data.phone?.trim() || null,
                 p_fiscal_code: data.fiscal_code,
                 p_address: data.address,
                 p_city: data.city,
