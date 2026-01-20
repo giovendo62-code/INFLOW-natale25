@@ -232,13 +232,7 @@ export const ClientsList: React.FC = () => {
                                         <span className="hidden lg:inline">Aggiorna</span>
                                     </button>
 
-                                    <button
-                                        onClick={() => { setModalTab('config'); setShowImport(true); }}
-                                        className="flex items-center gap-2 bg-gray-500/10 border border-gray-500/20 hover:bg-gray-500/20 text-gray-400 hover:text-text-primary px-3 py-2 rounded-lg font-medium transition-colors whitespace-nowrap"
-                                        title="Impostazioni Google Sheets"
-                                    >
-                                        <span className="hidden lg:inline">⚙️</span>
-                                    </button>
+
                                 </>
                             )}
                             <button
