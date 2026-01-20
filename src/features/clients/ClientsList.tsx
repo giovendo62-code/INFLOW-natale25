@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, Plus, Mail, Phone, MessageCircle, Megaphone, QrCode, X, Copy, Check, Star, Filter, ExternalLink, Trash2, CheckSquare, Square, RefreshCw, Loader2 } from 'lucide-react';
+import { Search, Plus, Mail, Phone, MessageCircle, Megaphone, QrCode, X, Copy, Check, Star, Filter, ExternalLink, Trash2, CheckSquare, Square, RefreshCw, Loader2, AlertTriangle } from 'lucide-react';
 import { api } from '../../services/api';
 import type { Client } from '../../services/types';
 import { useNavigate } from 'react-router-dom';
@@ -402,7 +402,17 @@ export const ClientsList: React.FC = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className="font-medium text-text-primary">{client.full_name}</div>
+                                        <div className="font-medium text-text-primary flex items-center gap-2">
+                                            {client.full_name}
+                                            {(!client.email || !client.phone) && (
+                                                <div className="group relative">
+                                                    <AlertTriangle size={16} className="text-yellow-500" />
+                                                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover:block px-2 py-1 bg-gray-900 text-white text-xs rounded whitespace-nowrap z-10 pointer-events-none">
+                                                        Dati incompleti
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                         <div className="text-xs text-text-muted">ID: {client.id}</div>
                                     </td>
                                     <td className="px-6 py-4">
@@ -484,7 +494,12 @@ export const ClientsList: React.FC = () => {
                                         )}
                                     </div>
                                     <div>
-                                        <div className="font-bold text-text-primary text-lg">{client.full_name}</div>
+                                        <div className="font-bold text-text-primary text-lg flex items-center gap-2">
+                                            {client.full_name}
+                                            {(!client.email || !client.phone) && (
+                                                <AlertTriangle size={18} className="text-yellow-500" />
+                                            )}
+                                        </div>
                                         <div className="text-xs text-text-muted">ID: {client.id}</div>
                                     </div>
                                 </div>

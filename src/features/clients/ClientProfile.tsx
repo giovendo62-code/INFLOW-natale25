@@ -436,7 +436,7 @@ export const ClientProfile: React.FC = () => {
                                         value={formData.email || ''}
                                         onChange={(e) => handleInputChange('email', e.target.value)}
                                         className="w-full bg-bg-tertiary border border-border rounded-lg px-4 py-2 text-white focus:border-accent outline-none"
-                                        placeholder="Email *"
+                                        placeholder="Email"
                                     />
                                 </div>
                                 <div>
@@ -445,7 +445,7 @@ export const ClientProfile: React.FC = () => {
                                         value={formData.phone || ''}
                                         onChange={(e) => handleInputChange('phone', e.target.value)}
                                         className="w-full bg-bg-tertiary border border-border rounded-lg px-4 py-2 text-white focus:border-accent outline-none"
-                                        placeholder="Telefono *"
+                                        placeholder="Telefono"
                                     />
                                 </div>
                                 <div className="col-span-2">
@@ -454,7 +454,7 @@ export const ClientProfile: React.FC = () => {
                                         value={formData.fiscal_code || ''}
                                         onChange={(e) => handleInputChange('fiscal_code', e.target.value)}
                                         className="w-full bg-bg-tertiary border border-border rounded-lg px-4 py-2 text-white focus:border-accent outline-none"
-                                        placeholder="Codice Fiscale *"
+                                        placeholder="Codice Fiscale"
                                     />
                                 </div>
                                 <div className="col-span-2 md:col-span-1">
@@ -463,7 +463,7 @@ export const ClientProfile: React.FC = () => {
                                         value={formData.address || ''}
                                         onChange={(e) => handleInputChange('address', e.target.value)}
                                         className="w-full bg-bg-tertiary border border-border rounded-lg px-4 py-2 text-white focus:border-accent outline-none"
-                                        placeholder="Indirizzo *"
+                                        placeholder="Indirizzo"
                                     />
                                 </div>
                                 <div className="flex gap-2">
@@ -472,14 +472,14 @@ export const ClientProfile: React.FC = () => {
                                         value={formData.city || ''}
                                         onChange={(e) => handleInputChange('city', e.target.value)}
                                         className="w-full bg-bg-tertiary border border-border rounded-lg px-4 py-2 text-white focus:border-accent outline-none"
-                                        placeholder="Città *"
+                                        placeholder="Città"
                                     />
                                     <input
                                         type="text"
                                         value={formData.zip_code || ''}
                                         onChange={(e) => handleInputChange('zip_code', e.target.value)}
                                         className="w-24 bg-bg-tertiary border border-border rounded-lg px-4 py-2 text-white focus:border-accent outline-none"
-                                        placeholder="CAP *"
+                                        placeholder="CAP"
                                     />
                                 </div>
 
