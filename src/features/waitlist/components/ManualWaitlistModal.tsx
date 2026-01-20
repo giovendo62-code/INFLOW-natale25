@@ -31,11 +31,14 @@ export const ManualWaitlistModal: React.FC<ManualWaitlistModalProps> = ({ isOpen
             // 1. Determine Identity (New or Existing)
             let clientID = 'new';
 
+            const cleanEmail = formData.email.trim();
+            const cleanPhone = formData.phone.trim();
+
             // Only attempt lookup if contact info is present
-            if (formData.email || formData.phone) {
+            if (cleanEmail || cleanPhone) {
                 const existing = await api.clients.getByContact(
-                    formData.email || '',
-                    formData.phone || '',
+                    cleanEmail,
+                    cleanPhone,
                     studioId
                 );
                 if (existing) {
@@ -51,8 +54,8 @@ export const ManualWaitlistModal: React.FC<ManualWaitlistModalProps> = ({ isOpen
                 const newClient = await api.clients.create({
                     studio_id: studioId,
                     full_name: nameToUse,
-                    email: formData.email,
-                    phone: formData.phone,
+                    email: (cleanEmail || null) as any, // Cast to any to allow null if TS expects strictly string
+                    phone: (cleanPhone || null) as any,
                     // Minimal default values
                     address: '',
                     city: '',
@@ -70,8 +73,8 @@ export const ManualWaitlistModal: React.FC<ManualWaitlistModalProps> = ({ isOpen
                 studio_id: studioId,
                 client_id: clientID,
                 client_name: formData.full_name || 'Cliente Manuale', // Display name in waitlist
-                email: formData.email,
-                phone: formData.phone,
+                email: cleanEmail,
+                phone: cleanPhone,
                 interest_type: formData.interest_type,
                 description: formData.notes,
                 styles: [], // Optional
@@ -90,9 +93,15 @@ export const ManualWaitlistModal: React.FC<ManualWaitlistModalProps> = ({ isOpen
                 notes: ''
             });
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Manual Entry Error:", error);
-            alert("Errore durante l'inserimento. Controlla la console.");
+
+            // Handle Duplicate Key Error (409) specifically
+            if (error?.code === '23505' || error?.status === 409 || error?.message?.includes('duplicate key')) {
+                alert("Errore: Esiste già un cliente con questa email o telefono.\nIl sistema non è riuscito a collegarlo automaticamente. Prova a cercarlo nella lista clienti.");
+            } else {
+                alert("Errore durante l'inserimento. Controlla la console.");
+            }
         } finally {
             setLoading(false);
         }
@@ -102,7 +111,6 @@ export const ManualWaitlistModal: React.FC<ManualWaitlistModalProps> = ({ isOpen
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
             <div className="bg-bg-secondary w-full max-w-lg rounded-2xl border border-border shadow-2xl flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
 
-                {/* Header */}
                 <div className="p-6 border-b border-border flex justify-between items-center">
                     <div>
                         <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
@@ -228,7 +236,7 @@ export const ManualWaitlistModal: React.FC<ManualWaitlistModalProps> = ({ isOpen
                     </button>
                 </div>
 
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
