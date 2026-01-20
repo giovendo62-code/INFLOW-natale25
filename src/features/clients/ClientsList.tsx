@@ -85,9 +85,9 @@ export const ClientsList: React.FC = () => {
         return clients.filter(client => {
             // Search Text
             const matchesSearch = search === '' ||
-                client.full_name.toLowerCase().includes(search.toLowerCase()) ||
-                client.email.toLowerCase().includes(search.toLowerCase()) ||
-                client.phone.includes(search);
+                (client.full_name || '').toLowerCase().includes(search.toLowerCase()) ||
+                (client.email || '').toLowerCase().includes(search.toLowerCase()) ||
+                (client.phone || '').includes(search);
 
             // Broadcast Filter
             const matchesBroadcast =

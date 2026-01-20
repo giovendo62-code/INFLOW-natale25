@@ -70,7 +70,7 @@ export const MobileNav: React.FC = () => {
     }, [isOpen]);
 
     // Role Logic & Sorting
-    const normalizedRole = user.role.toLowerCase();
+    const normalizedRole = (user.role || '').toLowerCase();
 
     const filteredItems = NAV_ITEMS.filter(item =>
         item.allowedRoles.some(r => r.toLowerCase() === normalizedRole)
@@ -284,7 +284,7 @@ export const MobileNav: React.FC = () => {
                                 />
                                 <div className="overflow-hidden">
                                     <p className="text-sm font-medium text-text-primary truncate">{user.full_name}</p>
-                                    <p className="text-xs text-text-muted capitalize truncate">{user.role.replace('_', ' ').toLowerCase()}</p>
+                                    <p className="text-xs text-text-muted capitalize truncate">{(user.role || '').replace('_', ' ').toLowerCase()}</p>
                                 </div>
                             </div>
 

@@ -35,9 +35,9 @@ export const SettingsPage: React.FC = () => {
         }
     }, [location.search]);
 
-    const isStudent = user?.role?.toLowerCase() === 'student';
+    const isStudent = (user?.role || '').toLowerCase() === 'student';
 
-    const normalizedRole = user?.role?.toLowerCase() || '';
+    const normalizedRole = (user?.role || '').toLowerCase();
 
     const tabs = [
         { id: 'profile', label: isStudent ? 'Scheda Studente' : 'Profilo', icon: User },

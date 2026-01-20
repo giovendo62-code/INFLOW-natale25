@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, []);
 
     function normalizeRole(role: string): any {
-        const r = role.toLowerCase();
+        const r = (role || '').toLowerCase();
         if (r === 'owner') return 'owner';
         if (r === 'studio_admin') return 'studio_admin';
         if (r === 'manager') return 'manager';

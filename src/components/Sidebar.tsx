@@ -108,7 +108,7 @@ export const Sidebar = () => {
 
     const filteredItems = NAV_ITEMS.filter(item => {
         // Handle case-insensitive role check
-        const normalizedUserRole = user.role.toLowerCase();
+        const normalizedUserRole = (user.role || '').toLowerCase();
         return item.allowedRoles.some(r => r.toLowerCase() === normalizedUserRole);
     });
 
@@ -136,7 +136,7 @@ export const Sidebar = () => {
                             {studio?.name || 'InkFlow'}
                         </h1>
                         <p className="text-xs text-text-muted capitalize">
-                            {user?.role === 'owner' ? 'Owner' : user?.role?.toLowerCase() || 'Member'}
+                            {user?.role === 'owner' ? 'Owner' : (user?.role || '').toLowerCase() || 'Member'}
                         </p>
                     </div>
                 </div>
@@ -204,7 +204,7 @@ export const Sidebar = () => {
                         <div className="flex-1 overflow-hidden">
                             <p className="text-sm font-medium text-text-primary truncate">{user.full_name}</p>
                             <p className="text-xs text-text-muted truncate capitalize">
-                                {user.role === 'owner' ? 'Owner' : user.role.replace('_', ' ').toLowerCase()}
+                                {user.role === 'owner' ? 'Owner' : (user.role || '').replace('_', ' ').toLowerCase()}
                             </p>
                         </div>
                     </div >

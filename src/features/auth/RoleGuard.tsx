@@ -27,7 +27,7 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({ allowedRoles }) => {
 
     if (allowedRoles && user) {
         // Case-insensitive check
-        const normalizedUserRole = user.role.toLowerCase();
+        const normalizedUserRole = (user.role || '').toLowerCase();
         const normalizedAllowedRoles = allowedRoles.map(r => r.toLowerCase());
 
         if (!normalizedAllowedRoles.includes(normalizedUserRole)) {

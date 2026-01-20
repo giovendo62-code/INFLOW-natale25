@@ -67,8 +67,8 @@ export const ClientSegmenter: React.FC<ClientSegmenterProps> = ({ data, onChange
     // Filter Logic
     const filteredClients = clients.filter(client => {
         const matchesSearch = !searchTerm ||
-            client.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            client.phone.includes(searchTerm);
+            (client.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (client.phone || '').includes(searchTerm);
 
         const matchesBroadcast =
             broadcastFilter === 'ALL' ||

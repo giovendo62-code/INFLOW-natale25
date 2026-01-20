@@ -219,8 +219,8 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
                                     <option value="">Seleziona Cliente</option>
                                     {clients
                                         .filter(client =>
-                                            client.full_name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-                                            client.email.toLowerCase().includes(clientSearch.toLowerCase())
+                                            (client.full_name || '').toLowerCase().includes(clientSearch.toLowerCase()) ||
+                                            (client.email || '').toLowerCase().includes(clientSearch.toLowerCase())
                                         )
                                         .map(client => (
                                             <option key={client.id} value={client.id}>{client.full_name}</option>

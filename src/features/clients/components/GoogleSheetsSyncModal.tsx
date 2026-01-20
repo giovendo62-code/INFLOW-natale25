@@ -237,7 +237,7 @@ export function GoogleSheetsSyncModal({ isOpen, onClose, onSyncSuccess, initialT
                 // Auto-map if possible (simple loose match)
                 const newMapping: Record<string, string> = { ...columnMapping };
                 headers.forEach((header: string) => {
-                    const h = header.toLowerCase();
+                    const h = (header || '').toLowerCase();
                     if (!newMapping[header]) {
                         if (h.includes('nome')) newMapping[header] = 'first_name';
                         if (h.includes('cognome')) newMapping[header] = 'last_name';

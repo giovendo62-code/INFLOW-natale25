@@ -330,7 +330,7 @@ export const ArtistProfilePage: React.FC = () => {
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-text-muted mb-1">Ruolo</label>
-                                <div className="p-3 bg-bg-tertiary rounded-lg text-text-primary capitalize">{artist.role.toLowerCase()}</div>
+                                <div className="p-3 bg-bg-tertiary rounded-lg text-text-primary capitalize">{(artist.role || '').toLowerCase()}</div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-text-muted mb-1">Colore Calendario</label>
