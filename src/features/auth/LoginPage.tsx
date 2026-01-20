@@ -59,7 +59,7 @@ export const LoginPage: React.FC = () => {
                 <div className="text-center mb-6">
                     <div className="flex justify-center mb-4">
                         <img
-                            src="/logo.jpg"
+                            src="/logo.png"
                             alt="InkFlow CRM"
                             className="w-24 h-24 rounded-full object-cover border-4 border-accent/20 shadow-xl"
                         />
