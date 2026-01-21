@@ -73,21 +73,13 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
 
     useEffect(() => {
         // If creating new appointment, always edit.
-        // If viewing existing, and user is ARTIST, start in read-only.
-        // If user is OWNER/MANAGER, start in edit mode (or read-only? request implies artist focus, but good UX might be read-only for all).
-        // Let's stick to request: "Artist... wants to see recap first".
+        // If viewing existing, start in read-only (Recap View) for EVERYONE.
         if (!selectedAppointment) {
             setIsEditing(true);
         } else {
-            // Existing appointment
-            const role = (user?.role || '').toUpperCase();
-            if (role === 'ARTIST') {
-                setIsEditing(false);
-            } else {
-                setIsEditing(true); // Managers go straight to edit
-            }
+            setIsEditing(false);
         }
-    }, [selectedAppointment, isOpen, user?.role]);
+    }, [selectedAppointment, isOpen]);
 
     // Load Clients and Artists on Mount (or when drawer opens)
     useEffect(() => {
