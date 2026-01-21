@@ -30,6 +30,9 @@ export const FinancialsPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [monthStats, setMonthStats] = useState<number[]>(new Array(12).fill(0));
 
+    // Filter Logic
+    const [selectedProducerId, setSelectedProducerId] = useState<string | null>(null);
+
     // Recurring Expenses
     const [recurringExpenses, setRecurringExpenses] = useState<RecurringExpense[]>([]);
     const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
@@ -89,6 +92,7 @@ export const FinancialsPage: React.FC = () => {
                         contractsMap[artist.id] = contract;
                     }
                 }));
+                contractsMap['studio'] = { commission_rate: 0 } as any; // Dummy for Studio
                 setContracts(contractsMap);
             } else if (userRole === 'artist') {
                 // Fetch own contract
@@ -104,8 +108,8 @@ export const FinancialsPage: React.FC = () => {
                     const month = new Date(tx.date).getMonth(); // 0-11
 
                     // Logic for Value:
-                    // If Owner: Total Income
-                    // If Artist: Only Own Share
+                    // If Owner: Total Income (Studio Gross)
+                    // If Artist: Only Own Share (Commission)
                     if (userRole === 'artist') {
                         if (tx.artist_id === user.id) {
                             const rate = contractsMap[user.id]?.commission_rate || 50;
@@ -136,10 +140,14 @@ export const FinancialsPage: React.FC = () => {
             let totalNet = 0; // Studio Net (Rev - Comm - Exp)
 
             // Setup breakdown map
-            const breakdown: Record<string, { name: string; gross: number; net: number; comm: number }> = {};
+            const breakdown: Record<string, { id: string; name: string; gross: number; net: number; comm: number }> = {};
             teamMembers.forEach(m => {
-                breakdown[m.id] = { name: m.full_name, gross: 0, net: 0, comm: 0 };
+                breakdown[m.id] = { id: m.id, name: m.full_name, gross: 0, net: 0, comm: 0 };
             });
+            // Ensure Studio is in breakdown
+            if (isOwner && !breakdown['studio']) {
+                breakdown['studio'] = { id: 'studio', name: 'Studio', gross: 0, net: 0, comm: 0 };
+            }
 
             displayTxs.forEach(tx => {
                 if (tx.type === 'EXPENSE') {
@@ -157,24 +165,23 @@ export const FinancialsPage: React.FC = () => {
                     }
 
                     if (userRole === 'artist') {
-                        // Artist View
+                        // Artist View: Revenue = Commission
                         totalRev += commission;
                     } else {
                         // Studio View
                         totalRev += amount; // Gross Revenue
-                        totalNet += (amount - commission); // Studio Share
+                        totalNet += (amount - commission); // Studio Share (Gross - Commission)
 
                         // Update Breakdown
                         const producerId = tx.artist_id || 'studio';
-                        if (breakdown[producerId]) {
-                            breakdown[producerId].gross += amount;
-                            breakdown[producerId].comm += commission;
-                            breakdown[producerId].net += (amount - commission);
-                        } else if (producerId === 'studio') {
-                            if (!breakdown['studio']) breakdown['studio'] = { name: 'Studio', gross: 0, net: 0, comm: 0 };
-                            breakdown['studio'].gross += amount;
-                            breakdown['studio'].net += amount;
+                        if (!breakdown[producerId]) {
+                            // Fallback if not init (e.g. deleted user or studio)
+                            breakdown[producerId] = { id: producerId, name: producerId === 'studio' ? 'Studio' : 'Unknown', gross: 0, net: 0, comm: 0 };
                         }
+
+                        breakdown[producerId].gross += amount;
+                        breakdown[producerId].comm += commission;
+                        breakdown[producerId].net += (amount - commission);
                     }
                 }
             });
@@ -266,10 +273,6 @@ export const FinancialsPage: React.FC = () => {
             const amount = parseFloat(data.amount);
 
             // 1. Create the Transaction (Immediate Expense)
-            // If the user is adding a "Fixed Expense", they likely want to record it for now too.
-            // Or maybe they just want to configure it?
-            // "Nuova Spesa" implies action. 
-            // We'll create the transaction regardless if date is set.
             if (data.createTransaction) {
                 await api.financials.createTransaction({
                     studio_id: user.studio_id,
@@ -321,6 +324,16 @@ export const FinancialsPage: React.FC = () => {
             console.error("Error generating recurring:", error);
         }
     };
+
+    // Derived filtered transactions based on click interaction
+    const visibleTransactions = React.useMemo(() => {
+        if (!selectedProducerId) return transactions;
+        if (selectedProducerId === 'studio') {
+            return transactions.filter(tx => !tx.artist_id); // Studio ones
+        }
+        return transactions.filter(tx => tx.artist_id === selectedProducerId);
+    }, [transactions, selectedProducerId]);
+
 
     if (!user) return null;
 
@@ -402,18 +415,24 @@ export const FinancialsPage: React.FC = () => {
                 </div>
             )}
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Revenue Card */}
-                <div className="bg-bg-secondary p-6 rounded-lg border border-border">
-                    <p className="text-text-muted text-sm font-medium mb-1">
-                        {isOwner ? 'Fatturato Lordo' : 'I Tuoi Guadagni'}
-                    </p>
-                    <div className="flex items-end justify-between">
-                        <h3 className="text-2xl font-bold text-text-primary">{stats ? formatCurrency(stats.revenue) : '-'}</h3>
-                        <div className="p-2 bg-green-500/10 text-green-500 rounded-lg"><TrendingUp size={20} /></div>
+            {/* Main Stats Cards - OWNER: Utile Netto Only (at top), ARTIST: Earnings */}
+            <div className={clsx("grid grid-cols-1 gap-6", isOwner ? "lg:grid-cols-2" : "lg:grid-cols-3")}>
+
+                {/* For Owner: ONLY show Net & Expenses at top as requested "fatturato lordo solo in basso" */}
+                {/* For Artist: "I Tuoi Guadagni" is effectively their "Revenue" */}
+
+                {!isOwner && (
+                    <div className="bg-bg-secondary p-6 rounded-lg border border-border">
+                        <p className="text-text-muted text-sm font-medium mb-1">
+                            I Tuoi Guadagni
+                        </p>
+                        <div className="flex items-end justify-between">
+                            <h3 className="text-2xl font-bold text-text-primary">{stats ? formatCurrency(stats.revenue) : '-'}</h3>
+                            <div className="p-2 bg-green-500/10 text-green-500 rounded-lg"><TrendingUp size={20} /></div>
+                        </div>
                     </div>
-                </div>
+                )}
+
 
                 {/* Expenses Card */}
                 <div className="bg-bg-secondary p-6 rounded-lg border border-border">
@@ -457,7 +476,16 @@ export const FinancialsPage: React.FC = () => {
                                 <p className="text-sm text-text-muted text-center py-4">Nessun dato per il periodo.</p>
                             ) : (
                                 producerStats.map((p, idx) => (
-                                    <div key={idx} className="flex flex-col gap-1 p-3 bg-bg-tertiary rounded-lg border border-border/50">
+                                    <div
+                                        key={idx}
+                                        onClick={() => setSelectedProducerId(selectedProducerId === p.id ? null : p.id)} // Toggle filter
+                                        className={clsx(
+                                            "flex flex-col gap-1 p-3 rounded-lg border cursor-pointer transition-all",
+                                            selectedProducerId === p.id
+                                                ? "bg-accent/10 border-accent"
+                                                : "bg-bg-tertiary border-border/50 hover:border-accent/50"
+                                        )}
+                                    >
                                         <div className="flex justify-between items-center">
                                             <span className="font-medium text-text-primary">{p.name}</span>
                                             <span className="text-xs text-text-muted bg-white/5 px-2 py-0.5 rounded">
@@ -465,11 +493,14 @@ export const FinancialsPage: React.FC = () => {
                                             </span>
                                         </div>
                                         <div className="w-full bg-black/20 h-1.5 rounded-full overflow-hidden mt-1 mb-1">
-                                            <div className="bg-accent h-full" style={{ width: `${(p.net / p.gross) * 100}%` }}></div>
+                                            <div className="bg-accent h-full" style={{ width: p.gross > 0 ? `${(p.net / p.gross) * 100}%` : '0%' }}></div>
                                         </div>
                                         <div className="flex justify-between text-xs">
                                             <span className="text-text-muted">Quota Studio: <span className="text-green-500">{formatCurrency(p.net)}</span></span>
                                             <span className="text-text-muted">Artista: <span className="text-orange-400">{formatCurrency(p.comm)}</span></span>
+                                        </div>
+                                        <div className="text-[10px] text-text-muted text-right italic mt-1">
+                                            Clicca per dettagli
                                         </div>
                                     </div>
                                 ))
@@ -480,8 +511,9 @@ export const FinancialsPage: React.FC = () => {
 
                 {/* Yearly Trend Chart - Right Side (Takes more space) */}
                 <div className={clsx("bg-bg-secondary p-6 rounded-lg border border-border", isOwner ? "lg:col-span-2" : "lg:col-span-3")}>
-                    <h3 className="text-lg font-bold text-text-primary mb-6">Andamento Entrate (Anno Corrente)</h3>
-                    {/* Chart Container - Handle Scroll/Overflow */}
+                    <h3 className="text-lg font-bold text-text-primary mb-6">
+                        {isOwner ? 'Andamento Entrate (Anno Corrente)' : 'I Tuoi Guadagni (Anno Corrente)'}
+                    </h3>
                     <div className="relative">
                         <div className="h-64 flex items-end justify-between gap-1 md:gap-2 px-2">
                             {monthStats.map((val, i) => {
@@ -489,7 +521,7 @@ export const FinancialsPage: React.FC = () => {
                                 const height = `${(val / maxVal) * 100}%`;
                                 return (
                                     <div key={i} className="w-full flex-1 flex flex-col justify-end items-center h-full group">
-                                        <div className="w-full bg-bg-tertiary hover:bg-accent/80 transition-all rounded-t-sm relative" style={{ height: height || '1px' }}>
+                                        <div className="w-full bg-bg-tertiary hover:bg-accent/80 transition-all rounded-t-sm relative" style={{ height: height === '0%' ? '1px' : height }}>
                                             <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity z-20 whitespace-nowrap pointer-events-none">
                                                 {formatCurrency(val)}
                                             </div>
@@ -498,7 +530,6 @@ export const FinancialsPage: React.FC = () => {
                                 );
                             })}
                         </div>
-                        {/* Labels - Hide every second label on very small screens if needed, or just let them shrink */}
                         <div className="flex justify-between mt-4 text-[10px] md:text-xs text-text-muted px-2 uppercase tracking-wider">
                             {['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'].map((m, i) => (
                                 <span key={m} className={clsx("w-full text-center", i % 2 !== 0 && "hidden sm:block")}>{m.substring(0, 3)}</span>
@@ -508,10 +539,16 @@ export const FinancialsPage: React.FC = () => {
                 </div>
             </div>
 
-            {/* Transactions Table */}
+            {/* Transactions Table WITH FILTERING */}
             <div className="bg-bg-secondary rounded-lg border border-border overflow-hidden">
-                <div className="p-6 border-b border-border">
-                    <h3 className="text-lg font-bold text-text-primary">Transazioni (Periodo Selezionato)</h3>
+                <div className="p-6 border-b border-border flex justify-between items-center">
+                    <h3 className="text-lg font-bold text-text-primary">
+                        Transazioni
+                        {selectedProducerId && <span className="text-accent ml-2 text-sm">(Filtrato: {producerStats.find(p => p.id === selectedProducerId)?.name || 'Studio'})</span>}
+                    </h3>
+                    {selectedProducerId && (
+                        <button onClick={() => setSelectedProducerId(null)} className="text-sm text-red-400 hover:text-red-300">Resetta Filtri</button>
+                    )}
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
@@ -519,7 +556,7 @@ export const FinancialsPage: React.FC = () => {
                             <tr className="text-sm text-text-muted font-medium border-b border-border">
                                 <th className="px-6 py-3">Data</th>
                                 <th className="px-6 py-3">Descrizione</th>
-                                <th className="px-6 py-3">Produttore</th>
+                                <th className="px-6 py-3">Operatore</th>
                                 <th className="px-6 py-3">Tipo</th>
                                 <th className="px-6 py-3 text-right">Importo</th>
                             </tr>
@@ -527,54 +564,87 @@ export const FinancialsPage: React.FC = () => {
                         <tbody className="divide-y divide-border">
                             {loading ? (
                                 <tr><td colSpan={5} className="p-8 text-center text-text-muted">Caricamento transazioni...</td></tr>
-                            ) : transactions.length === 0 ? (
+                            ) : visibleTransactions.length === 0 ? (
                                 <tr><td colSpan={5} className="p-8 text-center text-text-muted">Nessuna transazione trovata nel periodo.</td></tr>
                             ) : (
-                                transactions.map(tx => (
-                                    <tr key={tx.id} className="hover:bg-white/5 transition-colors">
-                                        <td className="px-6 py-4 text-sm text-text-secondary">
-                                            {format(new Date(tx.date), 'dd MMM yyyy', { locale: it })}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="font-medium text-text-primary">{tx.category}</div>
-                                            {tx.description && <div className="text-xs text-text-muted">{tx.description}</div>}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-text-secondary">
-                                            {/* Try to resolve artist name from team array */}
-                                            {tx.artist_id ? (team.find(m => m.id === tx.artist_id)?.full_name || 'Artista') : 'Studio'}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={clsx(
-                                                "text-xs px-2 py-1 rounded font-medium",
-                                                tx.type === 'INCOME' ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"
+                                visibleTransactions.map(tx => {
+                                    // Calculate display amount for Artists
+                                    let displayAmount = tx.amount;
+                                    let isCommission = false;
+
+                                    if (!isOwner && tx.type === 'INCOME') {
+                                        // If viewing as artist (already filtered by user.id in loadData)
+                                        // We show only the SHARE
+                                        const rate = contracts[user.id]?.commission_rate || 50;
+                                        displayAmount = (tx.amount * rate / 100);
+                                        isCommission = true;
+                                    }
+
+                                    return (
+                                        <tr key={tx.id} className="hover:bg-white/5 transition-colors">
+                                            <td className="px-6 py-4 text-sm text-text-secondary">
+                                                {format(new Date(tx.date), 'dd MMM yyyy', { locale: it })}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="font-medium text-text-primary">{tx.category}</div>
+                                                {tx.description && <div className="text-xs text-text-muted">{tx.description}</div>}
+                                                {isCommission && <div className="text-[10px] text-accent mt-0.5">La tua commissione (Prezzo intero: {formatCurrency(tx.amount)})</div>}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-text-secondary">
+                                                {/* Try to resolve artist name from team array */}
+                                                {tx.artist_id ? (team.find(m => m.id === tx.artist_id)?.full_name || 'Artista') : 'Studio'}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={clsx(
+                                                    "text-xs px-2 py-1 rounded font-medium",
+                                                    tx.type === 'INCOME' ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500"
+                                                )}>
+                                                    {tx.type === 'INCOME' ? 'ENTRATA' : 'USCITA'}
+                                                </span>
+                                            </td>
+                                            <td className={clsx(
+                                                "px-6 py-4 text-right font-medium",
+                                                tx.type === 'INCOME' ? "text-green-500" : "text-text-primary"
                                             )}>
-                                                {tx.type === 'INCOME' ? 'ENTRATA' : 'USCITA'}
-                                            </span>
-                                        </td>
-                                        <td className={clsx(
-                                            "px-6 py-4 text-right font-medium",
-                                            tx.type === 'INCOME' ? "text-green-500" : "text-text-primary"
-                                        )}>
-                                            <div className="flex items-center justify-end gap-3">
-                                                <span>{tx.type === 'EXPENSE' ? '-' : '+'}{formatCurrency(tx.amount)}</span>
-                                                {isOwner && (
-                                                    <button
-                                                        onClick={() => handleDeleteTransaction(tx.id)}
-                                                        className="p-1.5 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded transition-colors"
-                                                        title="Elimina Transazione"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
+                                                <div className="flex items-center justify-end gap-3">
+                                                    <span>{tx.type === 'EXPENSE' ? '-' : '+'}{formatCurrency(displayAmount)}</span>
+                                                    {isOwner && (
+                                                        <button
+                                                            onClick={() => handleDeleteTransaction(tx.id)}
+                                                            className="p-1.5 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded transition-colors"
+                                                            title="Elimina Transazione"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
                 </div>
             </div>
+
+            {/* OWNER TOTALS FOOTER (Fatturato Lordo moved here) */}
+            {isOwner && (
+                <div className="bg-bg-tertiary p-6 rounded-lg border border-border flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div>
+                        <h4 className="text-lg font-bold text-text-primary">Riepilogo Totale Periodo</h4>
+                        <p className="text-sm text-text-muted">Somma di tutte le entrate lorde, incluse le quote artisti.</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <div className="text-right">
+                            <span className="block text-sm text-text-muted">Fatturato Lordo</span>
+                            <span className="text-2xl font-bold text-text-primary">{stats ? formatCurrency(stats.revenue) : '-'}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+
             {/* Expenses Modal */}
             {isExpenseModalOpen && (
                 <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm animate-in fade-in">

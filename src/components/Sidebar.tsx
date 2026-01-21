@@ -141,7 +141,7 @@ export const Sidebar = () => {
                         </div>
                     )}
                     <div className="text-center">
-                        <h1 className="text-lg font-bold bg-gradient-to-r from-accent to-red-500 bg-clip-text text-transparent">
+                        <h1 className="text-lg font-bold text-accent">
                             {studio?.name || 'InkFlow'}
                         </h1>
                         <p className="text-xs text-text-muted capitalize">

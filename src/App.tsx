@@ -35,7 +35,7 @@ import { useLayoutStore } from './stores/layoutStore';
 
 function App() {
     // Global Theme Effect
-    const { theme } = useLayoutStore();
+    const { theme, accentColor } = useLayoutStore();
 
     React.useEffect(() => {
         document.documentElement.setAttribute('data-theme', theme);
@@ -44,7 +44,18 @@ function App() {
         } else {
             document.documentElement.classList.add('dark');
         }
-    }, [theme]);
+
+        // Apply Accent Color
+        if (accentColor) {
+            document.documentElement.style.setProperty('--color-accent', accentColor);
+
+            // Calculate hover color (darken slightly)
+            // Simple approach: Use same color or rely on CSS `color-mix` if supported, 
+            // or just let it be same for now to avoid complex HSLA conversion logic in App.tsx.
+            // Better: Let's assume input is Hex.
+            document.documentElement.style.setProperty('--color-accent-hover', accentColor);
+        }
+    }, [theme, accentColor]);
 
     return (
         <AuthProvider>

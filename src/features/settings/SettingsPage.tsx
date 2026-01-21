@@ -13,7 +13,7 @@ import { useLocation } from 'react-router-dom';
 
 export const SettingsPage: React.FC = () => {
     const { user, refreshProfile } = useAuth();
-    const { theme, setTheme } = useLayoutStore();
+    const { theme, setTheme, accentColor, setAccentColor } = useLayoutStore();
     const location = useLocation();
 
     // Parse query param ?tab=...
@@ -132,6 +132,67 @@ export const SettingsPage: React.FC = () => {
                                     <Sun size={24} />
                                     <span className="font-medium">Light Mode</span>
                                 </button>
+                            </div>
+                        </div>
+
+                        {/* Accent Color Selection */}
+                        <div className="bg-bg-secondary p-6 rounded-xl border border-border">
+                            <h3 className="text-lg font-semibold text-text-primary mb-4">Colore Principale</h3>
+                            <div className="space-y-6">
+                                {/* Presets */}
+                                <div>
+                                    <label className="text-sm text-text-secondary mb-3 block">Colori Predefiniti</label>
+                                    <div className="flex flex-wrap gap-3">
+                                        {[
+                                            { color: '#FF6B35', name: 'Inkflow Orange' },
+                                            { color: '#3B82F6', name: 'Blue' },
+                                            { color: '#8B5CF6', name: 'Purple' },
+                                            { color: '#10B981', name: 'Green' },
+                                            { color: '#EC4899', name: 'Pink' },
+                                            { color: '#EF4444', name: 'Red' },
+                                        ].map((preset) => (
+                                            <button
+                                                key={preset.color}
+                                                onClick={() => setAccentColor(preset.color)}
+                                                className={clsx(
+                                                    "w-10 h-10 rounded-full border-2 transition-all hover:scale-110",
+                                                    accentColor === preset.color
+                                                        ? "border-text-primary shadow-lg scale-110"
+                                                        : "border-transparent"
+                                                )}
+                                                style={{ backgroundColor: preset.color }}
+                                                title={preset.name}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Custom Color */}
+                                <div>
+                                    <label className="text-sm text-text-secondary mb-3 block">Colore Personalizzato</label>
+                                    <div className="flex items-center gap-3">
+                                        <div className="relative w-12 h-12 rounded-lg overflow-hidden border border-border cursor-pointer">
+                                            <input
+                                                type="color"
+                                                value={accentColor}
+                                                onChange={(e) => setAccentColor(e.target.value)}
+                                                className="absolute inset-0 w-[150%] h-[150%] -top-1/4 -left-1/4 cursor-pointer p-0 border-0"
+                                            />
+                                        </div>
+                                        <div className="flex-1">
+                                            <input
+                                                type="text"
+                                                value={accentColor}
+                                                onChange={(e) => setAccentColor(e.target.value)}
+                                                className="w-full bg-bg-tertiary border border-border rounded-lg px-4 py-2 text-text-primary font-mono uppercase"
+                                                maxLength={7}
+                                            />
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-text-muted mt-2">
+                                        Il colore selezionato verrà applicato a pulsanti, link e indicatori.
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>

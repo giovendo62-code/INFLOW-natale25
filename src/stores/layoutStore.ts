@@ -10,6 +10,8 @@ interface LayoutState {
     toggleMobileFullscreen: () => void;
     theme: 'dark' | 'light';
     setTheme: (theme: 'dark' | 'light') => void;
+    accentColor: string;
+    setAccentColor: (color: string) => void;
 }
 
 export const useLayoutStore = create<LayoutState>((set) => ({
@@ -22,4 +24,6 @@ export const useLayoutStore = create<LayoutState>((set) => ({
     toggleMobileFullscreen: () => set((state) => ({ isMobileFullscreen: !state.isMobileFullscreen })),
     theme: 'dark',
     setTheme: (theme) => set({ theme }),
+    accentColor: '#FF6B35', // Default Orange
+    setAccentColor: (color) => set({ accentColor: color }),
 }));
