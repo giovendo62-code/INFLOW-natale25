@@ -22,7 +22,7 @@ import { it } from 'date-fns/locale';
 import { useLayoutStore } from '../../stores/layoutStore';
 import clsx from 'clsx';
 import { AppointmentDrawer } from '../calendar/components/AppointmentDrawer'; // Import Drawer
-import { Image as ImageIcon } from 'lucide-react'; // Import Icon
+
 
 interface DashboardStats {
     revenue_today: number;
