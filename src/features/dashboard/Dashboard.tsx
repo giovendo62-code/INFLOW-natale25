@@ -147,7 +147,8 @@ export const Dashboard: React.FC = () => {
             setAppointments(enhancedAppts);
 
             // 4. Stats (Owner/Manager)
-            if (user.role === 'owner' || user.role === 'STUDIO_ADMIN' || user.role === 'MANAGER') {
+            const userRole = user.role?.toLowerCase();
+            if (userRole === 'owner' || userRole === 'studio_admin' || userRole === 'manager') {
                 const fStats = await api.financials.getStats(new Date(), user.studio_id);
 
                 let wCount = 0;
@@ -192,13 +193,13 @@ export const Dashboard: React.FC = () => {
     });
 
     useRealtime('waitlist_entries', () => {
-        if (user.role === 'owner' || user.role === 'MANAGER') {
+        if (user.role?.toLowerCase() === 'owner' || user.role?.toLowerCase() === 'manager') {
             loadDashboardData();
         }
     });
 
     useRealtime('transactions', () => {
-        if (user.role === 'owner' || user.role === 'MANAGER') {
+        if (user.role?.toLowerCase() === 'owner' || user.role?.toLowerCase() === 'manager') {
             loadDashboardData();
         }
     });
@@ -447,18 +448,18 @@ export const Dashboard: React.FC = () => {
                     </div>
                 </header>
 
-                {(user.role === 'owner' || user.role === 'STUDIO_ADMIN' || user.role === 'MANAGER') && renderAdminWidgets()}
-                {user.role === 'ARTIST' && renderArtistWidgets()}
-                {(user.role === 'STUDENT' || user.role === 'student') && renderStudentWidgets()}
+                {(user.role?.toLowerCase() === 'owner' || user.role?.toLowerCase() === 'studio_admin' || user.role?.toLowerCase() === 'manager') && renderAdminWidgets()}
+                {user.role?.toLowerCase() === 'artist' && renderArtistWidgets()}
+                {(user.role?.toLowerCase() === 'student') && renderStudentWidgets()}
 
-                {user.role !== 'STUDENT' && user.role !== 'student' && (
+                {user.role?.toLowerCase() !== 'student' && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-20">
                         <div className="lg:col-span-2 bg-bg-secondary border border-border rounded-lg p-6 min-h-[300px]">
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-lg font-bold text-text-primary">
-                                    {user.role === 'ARTIST' ? 'Programma di Oggi' : 'Appuntamenti Recenti'}
+                                    {user.role?.toLowerCase() === 'artist' ? 'Programma di Oggi' : 'Appuntamenti Recenti'}
                                 </h3>
-                                {(user.role === 'ARTIST' || user.role === 'artist') && (
+                                {(user.role?.toLowerCase() === 'artist') && (
                                     <button
                                         onClick={() => setViewAllAppointments(!viewAllAppointments)}
                                         className={clsx(

@@ -238,7 +238,7 @@ export const MobileNav: React.FC = () => {
                             <div>
                                 <h2 className="text-xl font-bold text-text-primary">Menu</h2>
                                 <p className="text-xs text-text-muted">
-                                    {user.role === 'STUDENT' ? 'Area Studente' : 'Gestione Studio'}
+                                    {user.role?.toUpperCase() === 'STUDENT' ? 'Area Studente' : 'Gestione Studio'}
                                 </p>
                             </div>
                             <button
