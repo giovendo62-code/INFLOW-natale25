@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useLayoutStore } from '../../../stores/layoutStore';
-import { X, Save, Trash2, Clock, User, Calendar as CalIcon, Banknote, Search, ArrowLeft } from 'lucide-react';
+import { X, Save, Trash2, Clock, User, Calendar as CalIcon, Banknote, Search, ArrowLeft, Pencil } from 'lucide-react';
 import clsx from 'clsx';
 import type { Appointment, Client, User as StudioUser } from '../../../services/types';
 import { api } from '../../../services/api';
 import { useAuth } from '../../auth/AuthContext';
 import { format } from 'date-fns';
+import { it } from 'date-fns/locale';
 import { DragDropUpload } from '../../../components/DragDropUpload';
 
 interface AppointmentDrawerProps {
@@ -33,6 +34,9 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
     const [clientSearch, setClientSearch] = useState('');
     const [artists, setArtists] = useState<StudioUser[]>([]);
 
+    // State for visual mode (Read-Only vs Edit)
+    const [isEditing, setIsEditing] = useState(false);
+
     // Delete Confirmation State
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,6 +52,24 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
         notes: '',
         images: []
     });
+
+    useEffect(() => {
+        // If creating new appointment, always edit.
+        // If viewing existing, and user is ARTIST, start in read-only.
+        // If user is OWNER/MANAGER, start in edit mode (or read-only? request implies artist focus, but good UX might be read-only for all).
+        // Let's stick to request: "Artist... wants to see recap first".
+        if (!selectedAppointment) {
+            setIsEditing(true);
+        } else {
+            // Existing appointment
+            const role = (user?.role || '').toUpperCase();
+            if (role === 'ARTIST') {
+                setIsEditing(false);
+            } else {
+                setIsEditing(true); // Managers go straight to edit
+            }
+        }
+    }, [selectedAppointment, isOpen, user?.role]);
 
     // Load Clients and Artists on Mount (or when drawer opens)
     useEffect(() => {
@@ -158,7 +180,7 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
                             <ArrowLeft size={24} />
                         </button>
                         <h2 className="text-xl font-bold text-text-primary">
-                            {selectedAppointment ? 'Modifica Appuntamento' : 'Nuovo Appuntamento'}
+                            {!isEditing ? 'Riepilogo Appuntamento' : (selectedAppointment ? 'Modifica Appuntamento' : 'Nuovo Appuntamento')}
                         </h2>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-bg-tertiary rounded-lg text-text-muted transition-colors hidden md:block">
@@ -172,254 +194,333 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
                 {/* Body */}
                 <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-6">
 
-                    {/* Artist Selection */}
-                    <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">Artista</label>
-                        <select
-                            className="w-full bg-bg-primary border border-border rounded-lg px-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none"
-                            value={formData.artist_id}
-                            onChange={(e) => setFormData({ ...formData, artist_id: e.target.value })}
-                        >
-                            <option value="">Seleziona Artista</option>
-                            {artists.map(artist => (
-                                <option key={artist.id} value={artist.id}>
-                                    {artist.full_name ? `${artist.full_name} (${artist.email})` : artist.email}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
+                    {!isEditing ? (
+                        /* READ-ONLY RECAP VIEW */
+                        <div className="space-y-6">
+                            {/* Images Grid Recap - FIRST as requested */}
+                            {formData.images && formData.images.length > 0 ? (
+                                <div>
+                                    <h3 className="text-sm font-medium text-text-secondary mb-3 uppercase tracking-wider">Immagini di Riferimento</h3>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                        {formData.images.map((img, idx) => (
+                                            <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-border cursor-pointer hover:opacity-80 transition-opacity" onClick={() => window.open(img, '_blank')}>
+                                                <img src={img} alt="Referenza" className="w-full h-full object-cover" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="p-4 border border-dashed border-border rounded-xl text-center text-text-muted text-sm">
+                                    Nessuna immagine allegata
+                                </div>
+                            )}
 
-                    {/* Client Selection */}
-                    <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">Cliente</label>
-                        <div className="space-y-2">
-                            {/* Search Input */}
-                            <div className="relative">
+                            {/* Client Info */}
+                            <div className="bg-bg-tertiary p-4 rounded-xl border border-border">
+                                <h3 className="text-sm font-medium text-text-secondary mb-3 uppercase tracking-wider">Cliente</h3>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-full bg-accent/10 flex items-center justify-center text-accent font-bold text-xl">
+                                        {(selectedAppointment?.client?.full_name || 'C')[0]}
+                                    </div>
+                                    <div>
+                                        <div className="text-lg font-bold text-text-primary">{selectedAppointment?.client?.full_name || 'Cliente Occasionale'}</div>
+                                        {selectedAppointment?.client?.phone && (
+                                            <div className="text-sm text-text-muted">{selectedAppointment.client.phone}</div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Service Details */}
+                            <div className="bg-bg-tertiary p-4 rounded-xl border border-border space-y-4">
+                                <h3 className="text-sm font-medium text-text-secondary mb-1 uppercase tracking-wider">Dettagli Servizio</h3>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <span className="text-xs text-text-muted block">Servizio</span>
+                                        <span className="text-text-primary font-medium">{selectedAppointment?.service_name || '-'}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-xs text-text-muted block">Preventivo</span>
+                                        <span className="text-text-primary font-medium">€{selectedAppointment?.price || 0}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-xs text-text-muted block">Data</span>
+                                        <span className="text-text-primary font-medium">
+                                            {selectedAppointment?.start_time ? format(new Date(selectedAppointment.start_time), 'dd MMM yyyy', { locale: it }) : '-'}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <span className="text-xs text-text-muted block">Orario</span>
+                                        <span className="text-text-primary font-medium">
+                                            {selectedAppointment?.start_time ? format(new Date(selectedAppointment.start_time), 'HH:mm') : '-'} -
+                                            {selectedAppointment?.end_time ? format(new Date(selectedAppointment.end_time), 'HH:mm') : '-'}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {selectedAppointment?.notes && (
+                                    <div className="pt-2 border-t border-white/5">
+                                        <span className="text-xs text-text-muted block mb-1">Note</span>
+                                        <p className="text-sm text-text-secondary">{selectedAppointment.notes}</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        /* EDIT FORM VIEW */
+                        <>
+                            {/* Artist Selection */}
+                            <div>
+                                <label className="block text-sm font-medium text-text-secondary mb-2">Artista</label>
+                                <select
+                                    className="w-full bg-bg-primary border border-border rounded-lg px-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none"
+                                    value={formData.artist_id}
+                                    onChange={(e) => setFormData({ ...formData, artist_id: e.target.value })}
+                                >
+                                    <option value="">Seleziona Artista</option>
+                                    {artists.map(artist => (
+                                        <option key={artist.id} value={artist.id}>
+                                            {artist.full_name ? `${artist.full_name} (${artist.email})` : artist.email}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Client Selection */}
+                            <div>
+                                <label className="block text-sm font-medium text-text-secondary mb-2">Cliente</label>
+                                <div className="space-y-2">
+                                    {/* Search Input */}
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none placeholder:text-text-muted"
+                                            placeholder="Cerca cliente..."
+                                            value={clientSearch}
+                                            onChange={(e) => setClientSearch(e.target.value)}
+                                        />
+                                        <Search className="absolute left-3 top-2.5 text-text-muted" size={18} />
+                                    </div>
+
+                                    {/* Dropdown */}
+                                    <div className="relative">
+                                        <select
+                                            className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none appearance-none"
+                                            value={formData.client_id}
+                                            onChange={(e) => {
+                                                setFormData({ ...formData, client_id: e.target.value });
+                                            }}
+                                        >
+                                            <option value="">Seleziona Cliente</option>
+                                            {clients
+                                                .filter(client =>
+                                                    (client.full_name || '').toLowerCase().includes(clientSearch.toLowerCase()) ||
+                                                    (client.email || '').toLowerCase().includes(clientSearch.toLowerCase())
+                                                )
+                                                .map(client => (
+                                                    <option key={client.id} value={client.id}>{client.full_name}</option>
+                                                ))
+                                            }
+                                        </select>
+                                        <User className="absolute left-3 top-2.5 text-text-muted" size={18} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Service Section */}
+                            <div>
+                                <label className="block text-sm font-medium text-text-secondary mb-2">Servizio</label>
                                 <input
                                     type="text"
-                                    className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none placeholder:text-text-muted"
-                                    placeholder="Cerca cliente..."
-                                    value={clientSearch}
-                                    onChange={(e) => setClientSearch(e.target.value)}
+                                    className="w-full bg-bg-primary border border-border rounded-lg px-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none"
+                                    placeholder="es. Tatuaggio Braccio, Ritocco..."
+                                    value={formData.service_name}
+                                    onChange={(e) => setFormData({ ...formData, service_name: e.target.value })}
                                 />
-                                <Search className="absolute left-3 top-2.5 text-text-muted" size={18} />
                             </div>
 
-                            {/* Dropdown */}
-                            <div className="relative">
-                                <select
-                                    className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none appearance-none"
-                                    value={formData.client_id}
-                                    onChange={(e) => {
-                                        setFormData({ ...formData, client_id: e.target.value });
-                                        // Optional: clear search on selection? Users might prefer it stays.
-                                        // For now, let's keep it simple.
-                                    }}
-                                >
-                                    <option value="">Seleziona Cliente</option>
-                                    {clients
-                                        .filter(client =>
-                                            (client.full_name || '').toLowerCase().includes(clientSearch.toLowerCase()) ||
-                                            (client.email || '').toLowerCase().includes(clientSearch.toLowerCase())
-                                        )
-                                        .map(client => (
-                                            <option key={client.id} value={client.id}>{client.full_name}</option>
-                                        ))
-                                    }
-                                </select>
-                                <User className="absolute left-3 top-2.5 text-text-muted" size={18} />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Service Section */}
-                    <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">Servizio</label>
-                        <input
-                            type="text"
-                            className="w-full bg-bg-primary border border-border rounded-lg px-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none"
-                            placeholder="es. Tatuaggio Braccio, Ritocco..."
-                            value={formData.service_name}
-                            onChange={(e) => setFormData({ ...formData, service_name: e.target.value })}
-                        />
-                    </div>
-
-                    {/* Financials (Price & Deposit) */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-text-secondary mb-2">Preventivo (€)</label>
-                            <div className="relative">
-                                <input
-                                    type={isPrivacyMode ? "password" : "number"}
-                                    min="0"
-                                    step="10"
-                                    className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none"
-                                    placeholder={isPrivacyMode ? "••••" : "0.00"}
-                                    value={formData.price || ''}
-                                    onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-                                />
-                                <Banknote className="absolute left-3 top-2.5 text-text-muted" size={18} />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-text-secondary mb-2">Acconto (€)</label>
-                            <div className="relative">
-                                <input
-                                    type={isPrivacyMode ? "password" : "number"}
-                                    min="0"
-                                    step="10"
-                                    className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none"
-                                    placeholder={isPrivacyMode ? "••••" : "0.00"}
-                                    value={formData.deposit || ''}
-                                    onChange={(e) => setFormData({ ...formData, deposit: parseFloat(e.target.value) || 0 })}
-                                />
-                                <Banknote className="absolute left-3 top-2.5 text-text-muted" size={18} />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Date & Time */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="col-span-1 md:col-span-2">
-                            <label className="block text-sm font-medium text-text-secondary mb-2">Data</label>
-                            <div className="relative">
-                                <input
-                                    type="date"
-                                    className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none appearance-none"
-                                    value={formData.start_time ? format(new Date(formData.start_time), 'yyyy-MM-dd') : ''}
-                                    onChange={(e) => {
-                                        if (!e.target.value) return;
-                                        const newDate = new Date(e.target.value);
-                                        const currentStart = new Date(formData.start_time!);
-                                        newDate.setHours(currentStart.getHours(), currentStart.getMinutes());
-
-                                        const currentEnd = new Date(formData.end_time!);
-                                        const duration = currentEnd.getTime() - currentStart.getTime();
-
-                                        setFormData({
-                                            ...formData,
-                                            start_time: newDate.toISOString(),
-                                            end_time: new Date(newDate.getTime() + duration).toISOString()
-                                        });
-                                    }}
-                                />
-                                <CalIcon className="absolute left-3 top-2.5 text-text-muted" size={18} />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-text-secondary mb-2">Ora Inizio</label>
-                            <div className="relative">
-                                <input
-                                    type="time"
-                                    className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none appearance-none"
-                                    value={formData.start_time ? format(new Date(formData.start_time), 'HH:mm') : ''}
-                                    onChange={(e) => {
-                                        if (!e.target.value) return;
-                                        const [hours, mins] = e.target.value.split(':').map(Number);
-                                        const newStart = new Date(formData.start_time!);
-                                        newStart.setHours(hours, mins);
-
-                                        const currentEnd = new Date(formData.end_time!);
-                                        const currentStart = new Date(formData.start_time!);
-                                        const duration = currentEnd.getTime() - currentStart.getTime();
-
-                                        setFormData({
-                                            ...formData,
-                                            start_time: newStart.toISOString(),
-                                            end_time: new Date(newStart.getTime() + duration).toISOString()
-                                        });
-                                    }}
-                                />
-                                <Clock className="absolute left-3 top-2.5 text-text-muted" size={18} />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-text-secondary mb-2">Ora Fine</label>
-                            <div className="relative">
-                                <input
-                                    type="time"
-                                    className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none appearance-none"
-                                    value={formData.end_time ? format(new Date(formData.end_time), 'HH:mm') : ''}
-                                    onChange={(e) => {
-                                        if (!e.target.value) return;
-                                        const [hours, mins] = e.target.value.split(':').map(Number);
-                                        const newEnd = new Date(formData.end_time!);
-                                        newEnd.setHours(hours, mins);
-
-                                        setFormData({
-                                            ...formData,
-                                            end_time: newEnd.toISOString()
-                                        });
-                                    }}
-                                />
-                                <Clock className="absolute left-3 top-2.5 text-text-muted" size={18} />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Status */}
-                    <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">Stato</label>
-                        <div className="flex gap-2 bg-bg-primary p-1 rounded-lg border border-border">
-                            {['PENDING', 'CONFIRMED', 'COMPLETED', 'NO_SHOW'].map(status => (
-                                <button
-                                    key={status}
-                                    onClick={() => setFormData({ ...formData, status: status as any })}
-                                    className={clsx(
-                                        "flex-1 py-2 text-xs font-medium rounded transition-all",
-                                        formData.status === status
-                                            ? "bg-accent text-white shadow-sm"
-                                            : "text-text-muted hover:text-text-primary"
-                                    )}
-                                >
-                                    {STATUS_LABELS[status]}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Reference Images */}
-                    <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">Immagini di Riferimento</label>
-                        <DragDropUpload onUpload={handleUpload} className="py-4" label="Aggiungi referenza" />
-
-                        {formData.images && formData.images.length > 0 && (
-                            <div className="grid grid-cols-3 gap-3 mt-4">
-                                {formData.images.map((img, idx) => (
-                                    <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-border group cursor-pointer" onClick={() => window.open(img, '_blank')}>
-                                        <img src={img} alt="Referenza" className="w-full h-full object-cover" />
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                            <span className="text-white text-xs font-medium">Apri</span>
-                                        </div>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); removeImage(idx); }}
-                                            className="absolute top-1 right-1 p-1 bg-black/50 hover:bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-all z-10"
-                                            title="Chiudi"
-                                        >
-                                            <X size={12} />
-                                        </button>
+                            {/* Financials (Price & Deposit) */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-text-secondary mb-2">Preventivo (€)</label>
+                                    <div className="relative">
+                                        <input
+                                            type={isPrivacyMode ? "password" : "number"}
+                                            min="0"
+                                            step="10"
+                                            className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none"
+                                            placeholder={isPrivacyMode ? "••••" : "0.00"}
+                                            value={formData.price || ''}
+                                            onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                                        />
+                                        <Banknote className="absolute left-3 top-2.5 text-text-muted" size={18} />
                                     </div>
-                                ))}
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-text-secondary mb-2">Acconto (€)</label>
+                                    <div className="relative">
+                                        <input
+                                            type={isPrivacyMode ? "password" : "number"}
+                                            min="0"
+                                            step="10"
+                                            className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none"
+                                            placeholder={isPrivacyMode ? "••••" : "0.00"}
+                                            value={formData.deposit || ''}
+                                            onChange={(e) => setFormData({ ...formData, deposit: parseFloat(e.target.value) || 0 })}
+                                        />
+                                        <Banknote className="absolute left-3 top-2.5 text-text-muted" size={18} />
+                                    </div>
+                                </div>
                             </div>
-                        )}
-                    </div>
 
-                    {/* Notes */}
-                    <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-2">Note</label>
-                        <textarea
-                            className="w-full bg-bg-primary border border-border rounded-lg px-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none min-h-[100px]"
-                            placeholder="Dettagli aggiuntivi..."
-                            value={formData.notes || ''}
-                            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                        />
-                    </div>
+                            {/* Date & Time */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="col-span-1 md:col-span-2">
+                                    <label className="block text-sm font-medium text-text-secondary mb-2">Data</label>
+                                    <div className="relative">
+                                        <input
+                                            type="date"
+                                            className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none appearance-none"
+                                            value={formData.start_time ? format(new Date(formData.start_time), 'yyyy-MM-dd') : ''}
+                                            onChange={(e) => {
+                                                if (!e.target.value) return;
+                                                const newDate = new Date(e.target.value);
+                                                const currentStart = new Date(formData.start_time!);
+                                                newDate.setHours(currentStart.getHours(), currentStart.getMinutes());
+
+                                                const currentEnd = new Date(formData.end_time!);
+                                                const duration = currentEnd.getTime() - currentStart.getTime();
+
+                                                setFormData({
+                                                    ...formData,
+                                                    start_time: newDate.toISOString(),
+                                                    end_time: new Date(newDate.getTime() + duration).toISOString()
+                                                });
+                                            }}
+                                        />
+                                        <CalIcon className="absolute left-3 top-2.5 text-text-muted" size={18} />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-text-secondary mb-2">Ora Inizio</label>
+                                    <div className="relative">
+                                        <input
+                                            type="time"
+                                            className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none appearance-none"
+                                            value={formData.start_time ? format(new Date(formData.start_time), 'HH:mm') : ''}
+                                            onChange={(e) => {
+                                                if (!e.target.value) return;
+                                                const [hours, mins] = e.target.value.split(':').map(Number);
+                                                const newStart = new Date(formData.start_time!);
+                                                newStart.setHours(hours, mins);
+
+                                                const currentEnd = new Date(formData.end_time!);
+                                                const currentStart = new Date(formData.start_time!);
+                                                const duration = currentEnd.getTime() - currentStart.getTime();
+
+                                                setFormData({
+                                                    ...formData,
+                                                    start_time: newStart.toISOString(),
+                                                    end_time: new Date(newStart.getTime() + duration).toISOString()
+                                                });
+                                            }}
+                                        />
+                                        <Clock className="absolute left-3 top-2.5 text-text-muted" size={18} />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-text-secondary mb-2">Ora Fine</label>
+                                    <div className="relative">
+                                        <input
+                                            type="time"
+                                            className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none appearance-none"
+                                            value={formData.end_time ? format(new Date(formData.end_time), 'HH:mm') : ''}
+                                            onChange={(e) => {
+                                                if (!e.target.value) return;
+                                                const [hours, mins] = e.target.value.split(':').map(Number);
+                                                const newEnd = new Date(formData.end_time!);
+                                                newEnd.setHours(hours, mins);
+
+                                                setFormData({
+                                                    ...formData,
+                                                    end_time: newEnd.toISOString()
+                                                });
+                                            }}
+                                        />
+                                        <Clock className="absolute left-3 top-2.5 text-text-muted" size={18} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Status */}
+                            <div>
+                                <label className="block text-sm font-medium text-text-secondary mb-2">Stato</label>
+                                <div className="flex gap-2 bg-bg-primary p-1 rounded-lg border border-border">
+                                    {['PENDING', 'CONFIRMED', 'COMPLETED', 'NO_SHOW'].map(status => (
+                                        <button
+                                            key={status}
+                                            onClick={() => setFormData({ ...formData, status: status as any })}
+                                            className={clsx(
+                                                "flex-1 py-2 text-xs font-medium rounded transition-all",
+                                                formData.status === status
+                                                    ? "bg-accent text-white shadow-sm"
+                                                    : "text-text-muted hover:text-text-primary"
+                                            )}
+                                        >
+                                            {STATUS_LABELS[status]}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Reference Images */}
+                            <div>
+                                <label className="block text-sm font-medium text-text-secondary mb-2">Immagini di Riferimento</label>
+                                <DragDropUpload onUpload={handleUpload} className="py-4" label="Aggiungi referenza" />
+
+                                {formData.images && formData.images.length > 0 && (
+                                    <div className="grid grid-cols-3 gap-3 mt-4">
+                                        {formData.images.map((img, idx) => (
+                                            <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-border group cursor-pointer" onClick={() => window.open(img, '_blank')}>
+                                                <img src={img} alt="Referenza" className="w-full h-full object-cover" />
+                                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                    <span className="text-white text-xs font-medium">Apri</span>
+                                                </div>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); removeImage(idx); }}
+                                                    className="absolute top-1 right-1 p-1 bg-black/50 hover:bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-all z-10"
+                                                    title="Chiudi"
+                                                >
+                                                    <X size={12} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Notes */}
+                            <div>
+                                <label className="block text-sm font-medium text-text-secondary mb-2">Note</label>
+                                <textarea
+                                    className="w-full bg-bg-primary border border-border rounded-lg px-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none min-h-[100px]"
+                                    placeholder="Dettagli aggiuntivi..."
+                                    value={formData.notes || ''}
+                                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                />
+                            </div>
+                        </>
+                    )}
 
                 </div>
 
                 {/* Footer */}
                 <div className="p-6 pb-24 md:pb-6 border-t border-border flex items-center justify-between bg-bg-secondary sticky bottom-0 z-10 transition-colors">
-                    {selectedAppointment && onDelete ? (
+                    {/* Delete button (only in edit mode/recap?) Maybe only in edit, or safe to be in recap if desired. Let's keep it simple: Delete available if in edit OR always if Owner? 
+                        Let's hide Delete in read-only mode to prevent accidents.
+                    */}
+                    {(isEditing && selectedAppointment && onDelete) ? (
                         <div className="flex items-center gap-2">
                             {isDeleting ? (
                                 <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 duration-200">
@@ -454,36 +555,47 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
                             onClick={onClose}
                             className="bg-bg-primary hover:bg-bg-tertiary text-text-primary px-6 py-3 rounded-xl font-medium transition-all shadow-lg shadow-black/20 border border-border"
                         >
-                            Annulla
+                            Chiudi
                         </button>
-                        <button
-                            disabled={isSubmitting}
-                            onClick={() => {
-                                if (!formData.start_time || !formData.end_time) {
-                                    alert('Data e Orario sono obbligatori');
-                                    return;
-                                }
 
-                                setIsSubmitting(true);
+                        {!isEditing ? (
+                            <button
+                                onClick={() => setIsEditing(true)}
+                                className="bg-accent hover:bg-accent-hover text-white px-6 py-3 rounded-xl font-medium transition-all shadow-lg shadow-accent/20 flex items-center gap-2"
+                            >
+                                <Pencil size={20} />
+                                <span>Modifica</span>
+                            </button>
+                        ) : (
+                            <button
+                                disabled={isSubmitting}
+                                onClick={() => {
+                                    if (!formData.start_time || !formData.end_time) {
+                                        alert('Data e Orario sono obbligatori');
+                                        return;
+                                    }
 
-                                // Sanitize data: remove joined objects that are not columns in appointments table
-                                const { client, artist, ...dataToSave } = formData as any;
+                                    setIsSubmitting(true);
 
-                                // Ensure studio_id is set
-                                if (!dataToSave.studio_id && user?.studio_id) {
-                                    dataToSave.studio_id = user.studio_id;
-                                }
+                                    // Sanitize data: remove joined objects that are not columns in appointments table
+                                    const { client, artist, ...dataToSave } = formData as any;
 
-                                onSave(dataToSave).finally(() => setIsSubmitting(false));
-                            }}
-                            className={clsx(
-                                "bg-accent text-white px-6 py-3 rounded-xl font-medium transition-all shadow-lg shadow-accent/20 flex items-center gap-2",
-                                isSubmitting ? "opacity-50 cursor-not-allowed" : "hover:bg-accent-hover"
-                            )}
-                        >
-                            {isSubmitting ? <Clock size={20} className="animate-spin" /> : <Save size={20} />}
-                            <span>{isSubmitting ? 'Salvataggio...' : 'Salva'}</span>
-                        </button>
+                                    // Ensure studio_id is set
+                                    if (!dataToSave.studio_id && user?.studio_id) {
+                                        dataToSave.studio_id = user.studio_id;
+                                    }
+
+                                    onSave(dataToSave).finally(() => setIsSubmitting(false));
+                                }}
+                                className={clsx(
+                                    "bg-accent text-white px-6 py-3 rounded-xl font-medium transition-all shadow-lg shadow-accent/20 flex items-center gap-2",
+                                    isSubmitting ? "opacity-50 cursor-not-allowed" : "hover:bg-accent-hover"
+                                )}
+                            >
+                                {isSubmitting ? <Clock size={20} className="animate-spin" /> : <Save size={20} />}
+                                <span>{isSubmitting ? 'Salvataggio...' : 'Salva'}</span>
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>

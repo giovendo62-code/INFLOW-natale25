@@ -10,7 +10,7 @@ import { api } from '../../services/api';
 import { useAuth } from '../auth/AuthContext';
 import { useLayoutStore } from '../../stores/layoutStore';
 
-import { Maximize2, Minimize2, ChevronRight } from 'lucide-react';
+import { Maximize2, Minimize2, ChevronRight, Image as ImageIcon } from 'lucide-react';
 import { format, startOfWeek, addDays, startOfYear, addMonths, isSameDay, isSameMonth, differenceInMinutes } from 'date-fns';
 import { it } from 'date-fns/locale';
 import clsx from 'clsx';
@@ -180,6 +180,11 @@ export const Calendar: React.FC = () => {
                                                                 <span className="opacity-75 mr-1" style={{ color: color }}>[{artist.full_name.split(' ')[0]}]</span>
                                                             ) : null}
                                                             {apt.service_name}
+                                                            {apt.images && apt.images.length > 0 && (
+                                                                <span className="inline-block ml-1 align-text-bottom">
+                                                                    <ImageIcon size={12} />
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -246,19 +251,38 @@ export const Calendar: React.FC = () => {
                                             <span className="text-lg font-bold text-text-primary">{format(new Date(apt.end_time), 'HH:mm')}</span>
                                             <span className="text-xs text-text-muted mt-1">{duration} min</span>
                                         </div>
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <h4 className="font-bold text-text-primary text-lg">{apt.client?.full_name || 'Cliente'}</h4>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                <h4 className="font-bold text-text-primary text-base sm:text-lg truncate max-w-full">{apt.client?.full_name || 'Cliente'}</h4>
                                                 {artist && (
-                                                    <span className="text-xs px-2 py-0.5 rounded-full border" style={{ color: color, borderColor: color, backgroundColor: `${color}20` }}>
+                                                    <span className="text-xs px-2 py-0.5 rounded-full border shrink-0" style={{ color: color, borderColor: color, backgroundColor: `${color}20` }}>
                                                         {artist.full_name}
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-sm mb-1" style={{ color: color }}>{apt.service_name}</p>
-                                            <p className="text-text-muted text-sm line-clamp-2">{apt.notes || 'Nessuna nota'}</p>
+                                            <p className="text-sm mb-1 truncate" style={{ color: color }}>
+                                                {apt.service_name}
+                                            </p>
+                                            <p className="text-text-muted text-sm line-clamp-1 sm:line-clamp-2">{apt.notes || 'Nessuna nota'}</p>
                                         </div>
-                                        <div className="self-center flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: color }}>
+
+                                        {/* Mobile Image Thumbnail - Right Side */}
+                                        {apt.images && apt.images.length > 0 && (
+                                            <div className="shrink-0 relative self-center" onClick={(e) => { e.stopPropagation(); window.open(apt.images![0], '_blank'); }}>
+                                                <img
+                                                    src={apt.images[0]}
+                                                    alt="Anteprima"
+                                                    className="w-16 h-16 rounded-lg object-cover border border-border shadow-sm bg-bg-secondary hover:scale-105 transition-transform"
+                                                />
+                                                {apt.images.length > 1 && (
+                                                    <span className="absolute -top-2 -right-2 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] text-white border border-bg-primary shadow-sm z-10">
+                                                        +{apt.images.length - 1}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        <div className="hidden sm:flex self-center items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: color }}>
                                             <span className="text-sm font-medium">Apri</span>
                                             <ChevronRight size={20} />
                                         </div>

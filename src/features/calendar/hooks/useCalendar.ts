@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
     startOfMonth,
     endOfMonth,
@@ -31,6 +31,17 @@ export const useCalendar = () => {
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [selectedArtistId, setSelectedArtistId] = useState<string | null>('all');
+    const defaultSetRef = useRef(false);
+
+    useEffect(() => {
+        if (user && !defaultSetRef.current) {
+            const role = (user.role || '').toUpperCase();
+            if (role === 'ARTIST') {
+                setView('day');
+            }
+            defaultSetRef.current = true;
+        }
+    }, [user]);
 
     useEffect(() => {
         fetchAppointments();

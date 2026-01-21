@@ -21,6 +21,8 @@ import { format, parseISO, startOfDay, addWeeks, endOfWeek, isSameWeek } from 'd
 import { it } from 'date-fns/locale';
 import { useLayoutStore } from '../../stores/layoutStore';
 import clsx from 'clsx';
+import { AppointmentDrawer } from '../calendar/components/AppointmentDrawer'; // Import Drawer
+import { Image as ImageIcon } from 'lucide-react'; // Import Icon
 
 interface DashboardStats {
     revenue_today: number;
@@ -58,6 +60,43 @@ export const Dashboard: React.FC = () => {
     const [isShareOpen, setIsShareOpen] = useState(false);
     const [isTermsViewOpen, setIsTermsViewOpen] = useState(false);
     const [viewTermsContent, setViewTermsContent] = useState('');
+    const [viewAllAppointments, setViewAllAppointments] = useState(false);
+
+    // Appointment Drawer State
+    const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+    const handleApptClick = (appt: Appointment) => {
+        setSelectedAppointment(appt);
+        setIsDrawerOpen(true);
+    };
+
+    const handleSaveAppointment = async (data: Partial<Appointment>) => {
+        try {
+            if (selectedAppointment) {
+                await api.appointments.update(selectedAppointment.id, data);
+            } else {
+                await api.appointments.create(data as Omit<Appointment, 'id' | 'created_at' | 'updated_at'>);
+            }
+            setIsDrawerOpen(false);
+            loadDashboardData(); // Refresh list
+        } catch (error) {
+            console.error('Error saving appointment:', error);
+            alert('Errore durante il salvataggio.');
+        }
+    };
+
+    const handleDeleteAppointment = async (id: string) => {
+        if (!window.confirm('Sei sicuro di voler eliminare questo appuntamento?')) return;
+        try {
+            await api.appointments.delete(id);
+            setIsDrawerOpen(false);
+            loadDashboardData(); // Refresh list
+        } catch (error) {
+            console.error('Error deleting appointment:', error);
+            alert('Errore durante l\'eliminazione.');
+        }
+    };
 
     if (!user) return <div className="p-8 text-center text-white">Caricamento utente...</div>;
 
@@ -95,7 +134,7 @@ export const Dashboard: React.FC = () => {
                 setContract(c);
             }
 
-            const artistIdFilter = isArtist ? user.id : undefined;
+            const artistIdFilter = (isArtist && !viewAllAppointments) ? user.id : undefined;
             const appts = await api.appointments.list(today, endNextWeek, artistIdFilter, user.studio_id);
 
             const enhancedAppts = await Promise.all(appts.map(async (appt) => {
@@ -139,7 +178,7 @@ export const Dashboard: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [user.id, user.role, user.studio_id]);
+    }, [user.id, user.role, user.studio_id, viewAllAppointments]);
 
     // -- Effects --
     useEffect(() => {
@@ -415,9 +454,25 @@ export const Dashboard: React.FC = () => {
                 {user.role !== 'STUDENT' && user.role !== 'student' && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-20">
                         <div className="lg:col-span-2 bg-bg-secondary border border-border rounded-lg p-6 min-h-[300px]">
-                            <h3 className="text-lg font-bold text-text-primary mb-4">
-                                {user.role === 'ARTIST' ? 'Programma di Oggi' : 'Appuntamenti Recenti'}
-                            </h3>
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-lg font-bold text-text-primary">
+                                    {user.role === 'ARTIST' ? 'Programma di Oggi' : 'Appuntamenti Recenti'}
+                                </h3>
+                                {(user.role === 'ARTIST' || user.role === 'artist') && (
+                                    <button
+                                        onClick={() => setViewAllAppointments(!viewAllAppointments)}
+                                        className={clsx(
+                                            "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border",
+                                            viewAllAppointments
+                                                ? "bg-accent text-white border-accent"
+                                                : "bg-bg-primary text-text-muted hover:text-text-primary border-border"
+                                        )}
+                                    >
+                                        <Users size={14} />
+                                        <span>{viewAllAppointments ? 'Vedi Solo I Miei' : 'Vedi Tutti'}</span>
+                                    </button>
+                                )}
+                            </div>
 
                             {loading ? (
                                 <div className="flex justify-center items-center h-48 text-text-muted">
@@ -433,23 +488,41 @@ export const Dashboard: React.FC = () => {
                                                 {appointments
                                                     .filter(appt => isSameWeek(parseISO(appt.start_time), new Date(), { weekStartsOn: 1 }))
                                                     .map((appt) => (
-                                                        <div key={appt.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-bg-primary rounded-lg border border-border/50 hover:border-accent/50 transition-colors gap-4">
+                                                        <div
+                                                            key={appt.id}
+                                                            onClick={() => handleApptClick(appt)}
+                                                            className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-bg-primary rounded-lg border border-border/50 hover:border-accent/50 transition-colors gap-4 cursor-pointer active:scale-[0.99]"
+                                                        >
                                                             <div className="flex items-center gap-3 min-w-0 flex-1">
                                                                 <div className="h-10 w-10 shrink-0 rounded-full bg-accent/10 flex items-center justify-center text-accent">
                                                                     <Calendar size={18} />
                                                                 </div>
                                                                 <div className="min-w-0 flex-1">
-                                                                    <p className="font-medium text-text-primary text-sm truncate">
+                                                                    <p className="font-medium text-text-primary text-sm truncate flex items-center gap-2">
                                                                         {format(parseISO(appt.start_time), 'EEEE d MMMM', { locale: it })} - {format(parseISO(appt.start_time), 'HH:mm')}
                                                                     </p>
-                                                                    <p className="text-xs text-text-muted truncate">
-                                                                        {appt.client?.full_name} • {appt.service_name}
-                                                                    </p>
+                                                                    <div className="flex items-center gap-1 text-xs text-text-muted truncate mt-1">
+                                                                        <span>{appt.client?.full_name} • {appt.service_name}</span>
+                                                                    </div>
                                                                 </div>
+                                                                {appt.images && appt.images.length > 0 && (
+                                                                    <div className="shrink-0 relative self-center ml-2" onClick={(e) => { e.stopPropagation(); window.open(appt.images![0], '_blank'); }}>
+                                                                        <img
+                                                                            src={appt.images[0]}
+                                                                            alt="Anteprima"
+                                                                            className="w-14 h-14 rounded-lg object-cover border border-border shadow-sm bg-bg-secondary hover:scale-105 transition-transform"
+                                                                        />
+                                                                        {appt.images.length > 1 && (
+                                                                            <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[8px] text-white border border-bg-primary shadow-sm z-10">
+                                                                                +{appt.images.length - 1}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                )}
                                                             </div>
 
-                                                            <div className="flex justify-end">
-                                                                {user.role !== 'ARTIST' && (
+                                                            <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
+                                                                {user.role !== 'ARTIST' && user.role !== 'artist' && (
                                                                     <button
                                                                         onClick={() => sendWhatsAppReminder(appt, 'CONFIRMATION')}
                                                                         className="p-2 text-green-400 hover:bg-green-400/10 rounded-lg transition-colors"
@@ -475,23 +548,41 @@ export const Dashboard: React.FC = () => {
                                                 {appointments
                                                     .filter(appt => !isSameWeek(parseISO(appt.start_time), new Date(), { weekStartsOn: 1 }))
                                                     .map((appt) => (
-                                                        <div key={appt.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-bg-primary rounded-lg border border-border/50 hover:border-accent/50 transition-colors gap-4">
+                                                        <div
+                                                            key={appt.id}
+                                                            onClick={() => handleApptClick(appt)}
+                                                            className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-bg-primary rounded-lg border border-border/50 hover:border-accent/50 transition-colors gap-4 cursor-pointer active:scale-[0.99]"
+                                                        >
                                                             <div className="flex items-center gap-3 min-w-0 flex-1">
                                                                 <div className="h-10 w-10 shrink-0 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500">
                                                                     <Calendar size={18} />
                                                                 </div>
                                                                 <div className="min-w-0 flex-1">
-                                                                    <p className="font-medium text-text-primary text-sm truncate">
+                                                                    <p className="font-medium text-text-primary text-sm truncate flex items-center gap-2">
                                                                         {format(parseISO(appt.start_time), 'EEEE d MMMM', { locale: it })} - {format(parseISO(appt.start_time), 'HH:mm')}
                                                                     </p>
-                                                                    <p className="text-xs text-text-muted truncate">
-                                                                        {appt.client?.full_name} • {appt.service_name}
-                                                                    </p>
+                                                                    <div className="flex items-center gap-1 text-xs text-text-muted truncate mt-1">
+                                                                        <span>{appt.client?.full_name} • {appt.service_name}</span>
+                                                                    </div>
                                                                 </div>
+                                                                {appt.images && appt.images.length > 0 && (
+                                                                    <div className="shrink-0 relative self-center ml-2" onClick={(e) => { e.stopPropagation(); window.open(appt.images![0], '_blank'); }}>
+                                                                        <img
+                                                                            src={appt.images[0]}
+                                                                            alt="Anteprima"
+                                                                            className="w-14 h-14 rounded-lg object-cover border border-border shadow-sm bg-bg-secondary hover:scale-105 transition-transform"
+                                                                        />
+                                                                        {appt.images.length > 1 && (
+                                                                            <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-accent text-[8px] text-white border border-bg-primary shadow-sm z-10">
+                                                                                +{appt.images.length - 1}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                )}
                                                             </div>
 
-                                                            <div className="flex gap-2 justify-end">
-                                                                {user.role !== 'ARTIST' && (
+                                                            <div className="flex gap-2 justify-end" onClick={(e) => e.stopPropagation()}>
+                                                                {user.role !== 'ARTIST' && user.role !== 'artist' && (
                                                                     <>
                                                                         <button
                                                                             onClick={() => sendWhatsAppReminder(appt, 'WEEK_NOTICE')}
@@ -584,7 +675,7 @@ export const Dashboard: React.FC = () => {
                 <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
                     <div className="bg-bg-primary border border-border rounded-xl w-full max-w-2xl flex flex-col max-h-[90vh]">
                         <div className="p-6 border-b border-border flex items-center justify-between">
-                            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                            <h2 className="text-xl font-bold text-text-primary flex items-center gap-2">
                                 <FileText className="text-accent" />
                                 Termini e Condizioni
                             </h2>
@@ -605,7 +696,7 @@ export const Dashboard: React.FC = () => {
                         <div className="p-6 border-t border-border flex justify-end">
                             <button
                                 onClick={() => setIsTermsViewOpen(false)}
-                                className="px-4 py-2 rounded-lg font-bold bg-bg-tertiary text-white hover:bg-white/10 border border-border transition-colors"
+                                className="px-4 py-2 rounded-lg font-bold bg-bg-tertiary text-text-primary hover:bg-white/10 border border-border transition-colors"
                             >
                                 Chiudi
                             </button>
@@ -613,6 +704,16 @@ export const Dashboard: React.FC = () => {
                     </div>
                 </div>
             )}
+
+            {/* Appointment Drawer */}
+            <AppointmentDrawer
+                isOpen={isDrawerOpen}
+                onClose={() => setIsDrawerOpen(false)}
+                selectedDate={null}
+                selectedAppointment={selectedAppointment}
+                onSave={handleSaveAppointment}
+                onDelete={handleDeleteAppointment}
+            />
         </div>
     );
 };
