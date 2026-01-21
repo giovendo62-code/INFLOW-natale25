@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { api } from '../../services/api';
-import { Users, Copy, Check, Mail, Shield, Trash2 } from 'lucide-react';
+import { Users, Copy, Check, Mail, Shield, Trash2, Eye, EyeOff, DollarSign } from 'lucide-react';
 
 export const TeamPage: React.FC = () => {
     const { user } = useAuth();
@@ -201,6 +201,21 @@ const TeamList: React.FC<{ studioId?: string }> = ({ studioId }) => {
         student: 'text-green-400'
     };
 
+    const handlePermissionUpdate = async (userId: string, key: 'can_view_clients' | 'can_view_others_financials', currentValue: boolean) => {
+        if (!studioId) return;
+        try {
+            await api.settings.updateMemberPermissions(studioId, userId, { [key]: !currentValue });
+            setMembers(prev => prev.map(m =>
+                m.id === userId
+                    ? { ...m, permissions: { ...m.permissions!, [key]: !currentValue } }
+                    : m
+            ));
+        } catch (err) {
+            console.error('Failed to update permissions:', err);
+            alert('Errore durante l\'aggiornamento dei permessi.');
+        }
+    };
+
     const handleDelete = async (userId: string, userName: string) => {
         if (!window.confirm(`Sei sicuro di voler rimuovere ${userName} dal team? \nQuesta azione rimuoverà il loro accesso allo studio e CANCELLERÀ il loro account.`)) {
             return;
@@ -220,7 +235,7 @@ const TeamList: React.FC<{ studioId?: string }> = ({ studioId }) => {
     return (
         <div className="grid grid-cols-1 gap-4">
             {members.map(member => (
-                <div key={member.id} className="flex items-center justify-between p-4 bg-bg-tertiary rounded-lg border border-border group">
+                <div key={member.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-bg-tertiary rounded-lg border border-border group gap-4">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-full bg-bg-primary flex items-center justify-center font-bold text-lg text-text-primary">
                             {member.full_name?.charAt(0).toUpperCase()}
@@ -232,7 +247,39 @@ const TeamList: React.FC<{ studioId?: string }> = ({ studioId }) => {
                             </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4">
+
+                    <div className="flex items-center gap-4 flex-wrap justify-end">
+                        {/* Permission Toggles (Only for Artists) */}
+                        {member.role === 'artist' && (
+                            <div className="flex items-center gap-2 mr-4 bg-bg-primary/50 p-1.5 rounded-lg border border-white/5">
+                                <button
+                                    onClick={() => handlePermissionUpdate(member.id, 'can_view_clients', member.permissions?.can_view_clients ?? true)}
+                                    className={`p-2 rounded-md transition-all flex items-center gap-2 text-xs font-medium ${(member.permissions?.can_view_clients ?? true)
+                                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                            : 'bg-white/5 text-text-muted hover:text-text-primary'
+                                        }`}
+                                    title={(member.permissions?.can_view_clients ?? true) ? "Può vedere la lista Clienti" : "NON può vedere la lista Clienti"}
+                                >
+                                    <Users size={14} />
+                                    <span className="hidden sm:inline">Clienti</span>
+                                    {(member.permissions?.can_view_clients ?? true) ? <Eye size={14} /> : <EyeOff size={14} />}
+                                </button>
+
+                                <button
+                                    onClick={() => handlePermissionUpdate(member.id, 'can_view_others_financials', member.permissions?.can_view_others_financials ?? false)}
+                                    className={`p-2 rounded-md transition-all flex items-center gap-2 text-xs font-medium ${member.permissions?.can_view_others_financials
+                                            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                                            : 'bg-white/5 text-text-muted hover:text-text-primary'
+                                        }`}
+                                    title={member.permissions?.can_view_others_financials ? "Può vedere finanze altrui" : "NON può vedere finanze altrui"}
+                                >
+                                    <DollarSign size={14} />
+                                    <span className="hidden sm:inline">Finanze Altri</span>
+                                    {member.permissions?.can_view_others_financials ? <Eye size={14} /> : <EyeOff size={14} />}
+                                </button>
+                            </div>
+                        )}
+
                         <span className={`text-xs uppercase px-2 py-1 rounded-md font-medium bg-white/5 ${roleColors[member.role?.toLowerCase()] || 'text-gray-400'}`}>
                             {member.role}
                         </span>

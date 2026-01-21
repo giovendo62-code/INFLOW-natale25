@@ -80,14 +80,26 @@ function App() {
                                     <Route path="/financials" element={<FinancialsPage />} />
                                 </Route>
 
-                                {/* Calendar, Clients, Consents, Chat, Comms (Owner + Management + Artists) */}
+                                {/* Calendar, Consents, Chat, Comms (Owner + Management + Artists) */}
                                 <Route element={<RoleGuard allowedRoles={['owner', 'STUDIO_ADMIN', 'MANAGER', 'ARTIST', 'artist']} />}>
                                     <Route path="/calendar" element={<CalendarPage />} />
-                                    <Route path="/clients" element={<ClientsPage />} />
-                                    <Route path="/clients/:id" element={<ClientProfilePage />} />
                                     <Route path="/consents" element={<ConsentsPage />} />
                                     <Route path="/chat" element={<ChatPage />} />
                                     <Route path="/communications" element={<CommunicationsPage />} />
+                                </Route>
+
+                                {/* Clients - Protected by Role AND Permission */}
+                                <Route element={<RoleGuard
+                                    allowedRoles={['owner', 'STUDIO_ADMIN', 'MANAGER', 'ARTIST', 'artist']}
+                                    additionalCheck={(user) => {
+                                        if ((user.role || '').toLowerCase() === 'artist') {
+                                            return user.permissions?.can_view_clients ?? true;
+                                        }
+                                        return true;
+                                    }}
+                                />}>
+                                    <Route path="/clients" element={<ClientsPage />} />
+                                    <Route path="/clients/:id" element={<ClientProfilePage />} />
                                 </Route>
 
                                 {/* Artists (Owner, Admin, Manager) */}

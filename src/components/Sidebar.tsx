@@ -109,7 +109,16 @@ export const Sidebar = () => {
     const filteredItems = NAV_ITEMS.filter(item => {
         // Handle case-insensitive role check
         const normalizedUserRole = (user.role || '').toLowerCase();
-        return item.allowedRoles.some(r => r.toLowerCase() === normalizedUserRole);
+        const roleAllowed = item.allowedRoles.some(r => r.toLowerCase() === normalizedUserRole);
+
+        if (!roleAllowed) return false;
+
+        // Permission Checks
+        if (item.label === 'Clienti' && normalizedUserRole === 'artist') {
+            return user.permissions?.can_view_clients ?? true;
+        }
+
+        return true;
     });
 
     // Current App URL for sharing

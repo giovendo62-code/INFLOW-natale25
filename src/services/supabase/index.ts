@@ -35,7 +35,7 @@ export class SupabaseRepository implements IRepository {
             // Fetch active membership to get real role and studio_id
             const { data: membership } = await supabase
                 .from('studio_memberships')
-                .select('role, studio_id')
+                .select('role, studio_id, can_view_clients, can_view_others_financials')
                 .eq('user_id', data.user.id)
                 .maybeSingle();
 
@@ -43,7 +43,12 @@ export class SupabaseRepository implements IRepository {
             const user: User = userData ? {
                 ...userData,
                 role: (membership?.role as UserRole) || userData.role || 'STUDENT',
-                studio_id: membership?.studio_id || userData.studio_id || 'default'
+                role: (membership?.role as UserRole) || userData.role || 'STUDENT',
+                studio_id: membership?.studio_id || userData.studio_id || 'default',
+                permissions: {
+                    can_view_clients: membership?.can_view_clients ?? true,
+                    can_view_others_financials: membership?.can_view_others_financials ?? false
+                }
             } : {
                 id: data.user.id,
                 email: data.user.email!,
@@ -104,7 +109,7 @@ export class SupabaseRepository implements IRepository {
             console.log('[REPO] getCurrentUser: fetching membership...');
             const { data: membership, error: memError } = await supabase
                 .from('studio_memberships')
-                .select('role, studio_id')
+                .select('role, studio_id, can_view_clients, can_view_others_financials')
                 .eq('user_id', data.session.user.id)
                 .maybeSingle();
             if (memError) console.warn('[REPO] getCurrentUser: fetch membership error (minor):', memError.message);
@@ -125,7 +130,12 @@ export class SupabaseRepository implements IRepository {
                 return {
                     ...userData,
                     role: (membership?.role as UserRole) || userData.role || 'STUDENT',
+                    role: (membership?.role as UserRole) || userData.role || 'STUDENT',
                     studio_id: membership?.studio_id || userData.studio_id || 'default',
+                    permissions: {
+                        can_view_clients: membership?.can_view_clients ?? true,
+                        can_view_others_financials: membership?.can_view_others_financials ?? false
+                    },
                     integrations: {
                         google_calendar: {
                             is_connected: !!googleIntegration,
@@ -146,7 +156,12 @@ export class SupabaseRepository implements IRepository {
                 email: data.session.user.email!,
                 full_name: 'User',
                 role: (membership?.role as UserRole) || 'STUDENT',
-                studio_id: membership?.studio_id || 'default'
+                role: (membership?.role as UserRole) || 'STUDENT',
+                studio_id: membership?.studio_id || 'default',
+                permissions: {
+                    can_view_clients: membership?.can_view_clients ?? true,
+                    can_view_others_financials: membership?.can_view_others_financials ?? false
+                }
             };
         },
         resetPasswordForEmail: async (email: string, redirectTo: string): Promise<void> => {
@@ -1072,6 +1087,15 @@ export class SupabaseRepository implements IRepository {
             if (inviteError) {
                 console.error('Failed to mark invitation as used:', token);
             }
+        },
+        updateMemberPermissions: async (studioId: string, userId: string, permissions: { can_view_clients?: boolean; can_view_others_financials?: boolean }): Promise<void> => {
+            const { error } = await supabase
+                .from('studio_memberships')
+                .update(permissions)
+                .eq('studio_id', studioId)
+                .eq('user_id', userId);
+
+            if (error) throw error;
         }
     };
 
