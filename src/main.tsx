@@ -2,7 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import { GlobalErrorBoundary } from './components/GlobalErrorBoundary'
-import { SiteAccessGuard } from './components/SiteAccessGuard'
+
 import './index.css'
 import './styles/theme.css'
 
@@ -38,9 +38,7 @@ if (rootEl) {
     <React.StrictMode>
       <GlobalErrorBoundary>
         <QueryClientProvider client={queryClient}>
-          <SiteAccessGuard>
-            <App />
-          </SiteAccessGuard>
+          <App />
         </QueryClientProvider>
       </GlobalErrorBoundary>
     </React.StrictMode>

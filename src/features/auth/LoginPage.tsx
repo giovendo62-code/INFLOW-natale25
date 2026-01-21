@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import { useAuth } from './AuthContext';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Lock } from 'lucide-react';
+import { isValidRegistrationToken } from '../../config/access_tokens';
 
 export const LoginPage: React.FC = () => {
     const { signIn, signUp } = useAuth();
@@ -17,7 +18,20 @@ export const LoginPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
 
+    // Registration Token State
+    const [registrationToken, setRegistrationToken] = useState('');
+    const [isTokenValid, setIsTokenValid] = useState(false);
+
     const from = location.state?.from?.pathname || '/dashboard';
+
+    const handleVerifyToken = () => {
+        if (isValidRegistrationToken(registrationToken)) {
+            setIsTokenValid(true);
+            setError(null);
+        } else {
+            setError('Codice di accesso non valido. Contatta l\'amministratore.');
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -27,6 +41,11 @@ export const LoginPage: React.FC = () => {
 
         try {
             if (activeTab === 'signup') {
+                if (!isTokenValid) {
+                    setError('Devi inserire un codice di accesso valido per registrarti.');
+                    setLoading(false);
+                    return;
+                }
                 const autoLogin = await signUp(email, password);
                 if (autoLogin) {
                     navigate(from, { replace: true });
@@ -98,57 +117,93 @@ export const LoginPage: React.FC = () => {
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-1">Email</label>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2 text-text-primary focus:ring-accent focus:border-accent transition-all"
-                            placeholder="nome@esempio.com"
-                            required
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-text-secondary mb-1">Password</label>
-                        <div className="relative">
-                            <input
-                                type={showPassword ? "text" : "password"}
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2 text-text-primary focus:ring-accent focus:border-accent pr-10 transition-all"
-                                placeholder="Inserisci la password"
-                                required
-                                minLength={6}
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
-                            >
-                                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                            </button>
+                {/* Token Check for Registration */}
+                {activeTab === 'signup' && !isTokenValid ? (
+                    <div className="space-y-4 animate-in fade-in">
+                        <div className="text-center p-4 bg-bg-tertiary rounded-lg border border-accent/20">
+                            <Lock className="mx-auto text-accent mb-2" size={24} />
+                            <h3 className="text-lg font-bold text-text-primary mb-1">Codice Accesso Richiesto</h3>
+                            <p className="text-xs text-text-muted">
+                                La registrazione è riservata. Inserisci uno dei 10 codici di accesso validi per procedere.
+                            </p>
                         </div>
-                        {activeTab === 'login' && (
-                            <div className="flex justify-end mt-1">
-                                <Link to="/forgot-password" className="text-xs text-accent hover:text-accent-hover transition-colors">
-                                    Password dimenticata?
-                                </Link>
+                        <input
+                            type="text"
+                            value={registrationToken}
+                            onChange={(e) => {
+                                setRegistrationToken(e.target.value);
+                                setError(null);
+                            }}
+                            className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2 text-text-primary text-center font-mono uppercase focus:ring-accent focus:border-accent transition-all"
+                            placeholder="INK-XXXX-X"
+                            onKeyDown={(e) => e.key === 'Enter' && handleVerifyToken()}
+                        />
+                        <button
+                            onClick={handleVerifyToken}
+                            className="w-full py-2 bg-accent hover:bg-accent-hover text-white rounded-lg font-medium transition-colors"
+                        >
+                            Verifica Codice
+                        </button>
+                    </div>
+                ) : (
+                    <form onSubmit={handleSubmit} className="space-y-4 animate-in fade-in">
+                        {activeTab === 'signup' && (
+                            <div className="bg-green-500/10 text-green-500 text-xs px-2 py-1 rounded text-center mb-2">
+                                ✓ Codice Accesso Valido
                             </div>
                         )}
-                    </div>
-                    <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full py-2 bg-accent hover:bg-accent-hover text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-2"
-                    >
-                        {loading ? 'Elaborazione...' : (activeTab === 'login' ? 'Accedi' : 'Registrati')}
-                    </button>
-                </form>
+                        <div>
+                            <label className="block text-sm font-medium text-text-secondary mb-1">Email</label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2 text-text-primary focus:ring-accent focus:border-accent transition-all"
+                                placeholder="nome@esempio.com"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-text-secondary mb-1">Password</label>
+                            <div className="relative">
+                                <input
+                                    type={showPassword ? "text" : "password"}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2 text-text-primary focus:ring-accent focus:border-accent pr-10 transition-all"
+                                    placeholder="Inserisci la password"
+                                    required
+                                    minLength={6}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors"
+                                >
+                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                            {activeTab === 'login' && (
+                                <div className="flex justify-end mt-1">
+                                    <Link to="/forgot-password" className="text-xs text-accent hover:text-accent-hover transition-colors">
+                                        Password dimenticata?
+                                    </Link>
+                                </div>
+                            )}
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full py-2 bg-accent hover:bg-accent-hover text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed mt-2"
+                        >
+                            {loading ? 'Elaborazione...' : (activeTab === 'login' ? 'Accedi' : 'Registrati')}
+                        </button>
+                    </form>
+                )}
 
                 {/* Deprecated toggle link removed in favor of Tabs */}
             </div>
         </div>
     );
 };
+
