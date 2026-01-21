@@ -127,8 +127,8 @@ export const GoogleCalendarDrawer: React.FC<GoogleCalendarDrawerProps> = ({ isOp
     return (
         <div className="fixed inset-0 z-50 flex justify-end">
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative w-full max-w-md bg-bg-secondary h-full shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300 border-l border-border">
-                <div className="p-6">
+            <div className="relative w-full max-w-md bg-bg-secondary h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 border-l border-border">
+                <div className="flex-1 overflow-y-auto p-6">
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
                             <Globe className="text-blue-500" /> Google Calendar
@@ -294,7 +294,7 @@ export const GoogleCalendarDrawer: React.FC<GoogleCalendarDrawerProps> = ({ isOp
                 </div>
 
                 {isConnected && (
-                    <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border bg-bg-secondary">
+                    <div className="p-4 border-t border-border bg-bg-secondary flex-shrink-0">
                         <button
                             onClick={handleSave}
                             type="button"
