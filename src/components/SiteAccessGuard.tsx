@@ -15,7 +15,13 @@ export const SiteAccessGuard: React.FC<{ children: React.ReactNode }> = ({ child
             return;
         }
 
-        // 2. Check LocalStorage
+        // 2. Check Public Routes (Waitlist & Register)
+        if (window.location.pathname.startsWith('/public')) {
+            setAccessGranted(true);
+            return;
+        }
+
+        // 3. Check LocalStorage
         const storedAccess = localStorage.getItem('site_access_granted');
         if (storedAccess === 'true') {
             setAccessGranted(true);
