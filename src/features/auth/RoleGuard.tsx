@@ -5,9 +5,10 @@ import type { UserRole } from '../../services/types';
 
 interface RoleGuardProps {
     allowedRoles?: UserRole[];
+    additionalCheck?: (user: any) => boolean; // Using any for user to avoid circular dep or strict type issues for now, or import User
 }
 
-export const RoleGuard: React.FC<RoleGuardProps> = ({ allowedRoles }) => {
+export const RoleGuard: React.FC<RoleGuardProps> = ({ allowedRoles, additionalCheck }) => {
     const { user, isAuthenticated, isLoading } = useAuth();
     const location = useLocation();
 
@@ -25,13 +26,19 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({ allowedRoles }) => {
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    if (allowedRoles && user) {
-        // Case-insensitive check
-        const normalizedUserRole = (user.role || '').toLowerCase();
-        const normalizedAllowedRoles = allowedRoles.map(r => r.toLowerCase());
+    if (user) {
+        // Case-insensitive role check
+        if (allowedRoles) {
+            const normalizedUserRole = (user.role || '').toLowerCase();
+            const normalizedAllowedRoles = allowedRoles.map(r => r.toLowerCase());
 
-        if (!normalizedAllowedRoles.includes(normalizedUserRole)) {
-            // Redirect to dashboard if authorized generally but not for this specific route
+            if (!normalizedAllowedRoles.includes(normalizedUserRole)) {
+                return <Navigate to="/" replace />;
+            }
+        }
+
+        // Additional custom check (e.g. permissions)
+        if (additionalCheck && !additionalCheck(user)) {
             return <Navigate to="/" replace />;
         }
     }

@@ -32,6 +32,11 @@ export interface User {
   pec?: string;
   academy_terms_accepted_at?: string;
   academy_terms_accepted_version?: number;
+  // Permissions
+  permissions?: {
+    can_view_clients: boolean;
+    can_view_others_financials: boolean;
+  };
 }
 
 export interface AuthSession {
@@ -283,6 +288,7 @@ export interface IRepository {
     createInvitation(studioId: string, email: string, role: string, token: string, invitedBy: string): Promise<void>;
     getInvitation(token: string): Promise<any>;
     acceptInvitation(token: string, userId: string, studioId: string, role: string): Promise<void>;
+    updateMemberPermissions(studioId: string, userId: string, permissions: { can_view_clients?: boolean; can_view_others_financials?: boolean }): Promise<void>;
   };
   consents: {
     getTemplate(studioId: string): Promise<ConsentTemplate | null>;

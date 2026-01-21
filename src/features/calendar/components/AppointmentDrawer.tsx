@@ -37,6 +37,24 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
     // State for visual mode (Read-Only vs Edit)
     const [isEditing, setIsEditing] = useState(false);
 
+    // Permission Check: Can view financials?
+    // Owner/Manager: Always YES
+    // Artist: YES if Own Appointment OR has 'can_view_others_financials' permission
+    const canViewFinancials = React.useMemo(() => {
+        if (!user) return false;
+        const role = (user.role || '').toUpperCase();
+        if (['OWNER', 'MANAGER', 'STUDIO_ADMIN'].includes(role)) return true;
+
+        // If creating new, always true (it's their own usually, or they are assigning it)
+        if (!selectedAppointment) return true;
+
+        // If viewing existing
+        const isOwnAppointment = selectedAppointment.artist_id === user.id;
+        if (isOwnAppointment) return true;
+
+        return user.permissions?.can_view_others_financials ?? false;
+    }, [user, selectedAppointment]);
+
     // Delete Confirmation State
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -242,7 +260,9 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
                                     </div>
                                     <div>
                                         <span className="text-xs text-text-muted block">Preventivo</span>
-                                        <span className="text-text-primary font-medium">€{selectedAppointment?.price || 0}</span>
+                                        <span className="text-text-primary font-medium">
+                                            {canViewFinancials ? `€${selectedAppointment?.price || 0}` : '***'}
+                                        </span>
                                     </div>
                                     <div>
                                         <span className="text-xs text-text-muted block">Data</span>
@@ -340,39 +360,41 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
                                 />
                             </div>
 
-                            {/* Financials (Price & Deposit) */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-text-secondary mb-2">Preventivo (€)</label>
-                                    <div className="relative">
-                                        <input
-                                            type={isPrivacyMode ? "password" : "number"}
-                                            min="0"
-                                            step="10"
-                                            className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none"
-                                            placeholder={isPrivacyMode ? "••••" : "0.00"}
-                                            value={formData.price || ''}
-                                            onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-                                        />
-                                        <Banknote className="absolute left-3 top-2.5 text-text-muted" size={18} />
+                            {/* Financials (Price & Deposit) - Only if allowed */}
+                            {canViewFinancials && (
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-text-secondary mb-2">Preventivo (€)</label>
+                                        <div className="relative">
+                                            <input
+                                                type={isPrivacyMode ? "password" : "number"}
+                                                min="0"
+                                                step="10"
+                                                className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none"
+                                                placeholder={isPrivacyMode ? "••••" : "0.00"}
+                                                value={formData.price || ''}
+                                                onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                                            />
+                                            <Banknote className="absolute left-3 top-2.5 text-text-muted" size={18} />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-text-secondary mb-2">Acconto (€)</label>
+                                        <div className="relative">
+                                            <input
+                                                type={isPrivacyMode ? "password" : "number"}
+                                                min="0"
+                                                step="10"
+                                                className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none"
+                                                placeholder={isPrivacyMode ? "••••" : "0.00"}
+                                                value={formData.deposit || ''}
+                                                onChange={(e) => setFormData({ ...formData, deposit: parseFloat(e.target.value) || 0 })}
+                                            />
+                                            <Banknote className="absolute left-3 top-2.5 text-text-muted" size={18} />
+                                        </div>
                                     </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-text-secondary mb-2">Acconto (€)</label>
-                                    <div className="relative">
-                                        <input
-                                            type={isPrivacyMode ? "password" : "number"}
-                                            min="0"
-                                            step="10"
-                                            className="w-full bg-bg-primary border border-border rounded-lg pl-10 pr-4 py-2.5 text-text-primary focus:ring-2 focus:ring-accent outline-none"
-                                            placeholder={isPrivacyMode ? "••••" : "0.00"}
-                                            value={formData.deposit || ''}
-                                            onChange={(e) => setFormData({ ...formData, deposit: parseFloat(e.target.value) || 0 })}
-                                        />
-                                        <Banknote className="absolute left-3 top-2.5 text-text-muted" size={18} />
-                                    </div>
-                                </div>
-                            </div>
+                            )}
 
                             {/* Date & Time */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
