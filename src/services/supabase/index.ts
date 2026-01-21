@@ -35,7 +35,7 @@ export class SupabaseRepository implements IRepository {
             // Fetch active membership to get real role and studio_id
             const { data: membership } = await supabase
                 .from('studio_memberships')
-                .select('role, studio_id, can_view_clients, can_view_others_financials')
+                .select('*')
                 .eq('user_id', data.user.id)
                 .maybeSingle();
 
@@ -108,7 +108,7 @@ export class SupabaseRepository implements IRepository {
             console.log('[REPO] getCurrentUser: fetching membership...');
             const { data: membership, error: memError } = await supabase
                 .from('studio_memberships')
-                .select('role, studio_id, can_view_clients, can_view_others_financials')
+                .select('*')
                 .eq('user_id', data.session.user.id)
                 .maybeSingle();
             if (memError) console.warn('[REPO] getCurrentUser: fetch membership error (minor):', memError.message);
