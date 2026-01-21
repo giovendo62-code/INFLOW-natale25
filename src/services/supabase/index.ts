@@ -43,7 +43,6 @@ export class SupabaseRepository implements IRepository {
             const user: User = userData ? {
                 ...userData,
                 role: (membership?.role as UserRole) || userData.role || 'STUDENT',
-                role: (membership?.role as UserRole) || userData.role || 'STUDENT',
                 studio_id: membership?.studio_id || userData.studio_id || 'default',
                 permissions: {
                     can_view_clients: membership?.can_view_clients ?? true,
@@ -130,7 +129,6 @@ export class SupabaseRepository implements IRepository {
                 return {
                     ...userData,
                     role: (membership?.role as UserRole) || userData.role || 'STUDENT',
-                    role: (membership?.role as UserRole) || userData.role || 'STUDENT',
                     studio_id: membership?.studio_id || userData.studio_id || 'default',
                     permissions: {
                         can_view_clients: membership?.can_view_clients ?? true,
@@ -155,7 +153,6 @@ export class SupabaseRepository implements IRepository {
                 id: data.session.user.id,
                 email: data.session.user.email!,
                 full_name: 'User',
-                role: (membership?.role as UserRole) || 'STUDENT',
                 role: (membership?.role as UserRole) || 'STUDENT',
                 studio_id: membership?.studio_id || 'default',
                 permissions: {

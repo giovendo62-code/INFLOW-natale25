@@ -790,6 +790,11 @@ export class MockRepository implements IRepository {
                     }
                 }
             }
+        },
+        updateMemberPermissions: async (_studioId: string, _userId: string, _permissions: { can_view_clients: boolean; can_view_others_financials: boolean }): Promise<void> => {
+            await new Promise(resolve => setTimeout(resolve, 300));
+            // No-op for mock
+            console.log('[MOCK] updateMemberPermissions', { _studioId, _userId, _permissions });
         }
     };
 
