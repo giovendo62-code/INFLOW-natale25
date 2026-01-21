@@ -303,14 +303,16 @@ export const Dashboard: React.FC = () => {
                     icon={Clock}
                     color="bg-blue-500"
                 />
-                <StatsCard
-                    title="I Tuoi Guadagni (Netto)"
-                    value={netEarnings}
-                    change={isPrivacyMode ? undefined : "8%"}
-                    isPositive={true}
-                    icon={TrendingUp}
-                    color="bg-green-500"
-                />
+                <div className="hidden md:block">
+                    <StatsCard
+                        title="I Tuoi Guadagni (Netto)"
+                        value={netEarnings}
+                        change={isPrivacyMode ? undefined : "8%"}
+                        isPositive={true}
+                        icon={TrendingUp}
+                        color="bg-green-500"
+                    />
+                </div>
             </div>
         );
     };
