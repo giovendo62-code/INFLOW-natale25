@@ -1744,12 +1744,12 @@ Formatta la risposta ESCLUSIVAMENTE come un JSON array di stringhe, esempio: ["C
         signConsent: async (clientId: string, templateId: string, signatureData: string, version: number, role: string): Promise<ClientConsent> => {
             // 1. Upload signature image
             const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('consents')
-                .upload(`signatures/${clientId}/${Date.now()}.png`, await (await fetch(signatureData)).blob());
+                .from('signatures')
+                .upload(`${clientId}/${Date.now()}.png`, await (await fetch(signatureData)).blob());
 
             if (uploadError) throw uploadError;
 
-            const { data: { publicUrl } } = supabase.storage.from('consents').getPublicUrl(uploadData.path);
+            const { data: { publicUrl } } = supabase.storage.from('signatures').getPublicUrl(uploadData.path);
 
             // 2. Create consent record
             const { data: consent, error: insertError } = await supabase

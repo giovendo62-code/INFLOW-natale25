@@ -6,6 +6,7 @@ import type { User, ArtistContract, PresenceLog, RentType, ArtistDocument } from
 import { Save, RefreshCw, Plus, Clock, AlertTriangle, ArrowLeft, Upload, FileText, Trash2, MessageCircle } from 'lucide-react';
 import clsx from 'clsx';
 import { useLayoutStore } from '../../stores/layoutStore';
+import { Modal } from '../../components/Modal';
 
 type Tab = 'DETAILS' | 'CONTRACT' | 'PRESENCES' | 'DOCUMENTS';
 
@@ -24,6 +25,7 @@ export const ArtistProfilePage: React.FC = () => {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [docs, setDocs] = useState<ArtistDocument[]>([]);
+    const [success, setSuccess] = useState<string | null>(null);
 
     // Form state (Contract)
     const [formData, setFormData] = useState<Partial<ArtistContract>>({
@@ -104,8 +106,8 @@ export const ArtistProfilePage: React.FC = () => {
             });
             console.log('UpdateProfile response:', updated);
             setArtist(updated);
-            alert('Profilo aggiornato con successo! La pagina verrà ricaricata.');
-            window.location.reload();
+            setSuccess('Profilo aggiornato con successo! La pagina verrà ricaricata.');
+            setTimeout(() => window.location.reload(), 2000);
         } catch (err: any) {
             console.error(err);
             alert('Errore aggiornamento profilo: ' + err.message);
@@ -134,7 +136,7 @@ export const ArtistProfilePage: React.FC = () => {
 
             const updated = await api.artists.updateContract(id, formData);
             setContract(updated);
-            alert('Contract saved successfully!');
+            setSuccess('Contratto salvato con successo!');
 
             // Refund logs if switched to presences
             if (updated.rent_type === 'PRESENCES') {
@@ -662,6 +664,26 @@ export const ArtistProfilePage: React.FC = () => {
 
 
             </div>
+
+            <Modal
+                isOpen={!!success}
+                onClose={() => setSuccess(null)}
+                title="Successo"
+            >
+                <div className="flex flex-col gap-4">
+                    <p className="text-text-secondary text-lg text-center">
+                        {success}
+                    </p>
+                    <div className="flex justify-center">
+                        <button
+                            onClick={() => setSuccess(null)}
+                            className="bg-accent hover:bg-accent-hover text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                        >
+                            Chiudi
+                        </button>
+                    </div>
+                </div>
+            </Modal>
         </div >
     );
 };
