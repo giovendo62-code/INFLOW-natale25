@@ -889,7 +889,11 @@ export class SupabaseRepository implements IRepository {
 
                 return {
                     ...user,
-                    role: finalRole as any
+                    role: finalRole as any,
+                    permissions: {
+                        can_view_clients: membership?.can_view_clients ?? true,
+                        can_view_others_financials: membership?.can_view_others_financials ?? false
+                    }
                 };
             });
 
