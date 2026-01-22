@@ -8,6 +8,8 @@ import { useAuth } from '../auth/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRealtime } from '../../hooks/useRealtime';
 import { ManualWaitlistModal } from './components/ManualWaitlistModal';
+import { AppointmentDrawer } from '../calendar/components/AppointmentDrawer';
+import { Image as ImageIcon, CalendarPlus } from 'lucide-react';
 
 export const WaitlistManager: React.FC = () => {
     const { user } = useAuth();
@@ -37,6 +39,10 @@ export const WaitlistManager: React.FC = () => {
     // Notes State
     const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
     const [noteText, setNoteText] = useState('');
+
+    // Booking State
+    const [selectedEntryForBooking, setSelectedEntryForBooking] = useState<WaitlistEntry | null>(null);
+    const [viewingImage, setViewingImage] = useState<string | null>(null);
 
     // React Query
     const { data: entries = [], isLoading: loading } = useQuery({
@@ -187,6 +193,15 @@ export const WaitlistManager: React.FC = () => {
             <div className={clsx("flex items-center gap-2", isMobile ? "grid grid-cols-2 w-full" : "justify-end")}>
                 {entry.status === 'PENDING' && (
                     <>
+                        {entry.client_id && (
+                            <button
+                                onClick={() => setSelectedEntryForBooking(entry)}
+                                className="px-3 py-1.5 rounded-lg text-xs font-medium border whitespace-nowrap bg-accent/10 hover:bg-accent/20 text-accent border-accent/20 flex items-center gap-1"
+                            >
+                                <CalendarPlus size={14} />
+                                Prenota
+                            </button>
+                        )}
                         <button onClick={() => handleStatusUpdate(entry.id, 'IN_PROGRESS')} className={getBtnClass('blue')}>In Lavorazione</button>
                         <button onClick={() => handleStatusUpdate(entry.id, 'BOOKED')} className={getBtnClass('green')}>Completa</button>
                         <button onClick={() => handleStatusUpdate(entry.id, 'REJECTED')} className={getBtnClass('red')}>Rifiuta</button>
@@ -194,6 +209,15 @@ export const WaitlistManager: React.FC = () => {
                 )}
                 {(entry.status === 'IN_PROGRESS' || entry.status === 'CONTACTED') && (
                     <>
+                        {entry.client_id && (
+                            <button
+                                onClick={() => setSelectedEntryForBooking(entry)}
+                                className="px-3 py-1.5 rounded-lg text-xs font-medium border whitespace-nowrap bg-accent/10 hover:bg-accent/20 text-accent border-accent/20 flex items-center gap-1"
+                            >
+                                <CalendarPlus size={14} />
+                                Prenota
+                            </button>
+                        )}
                         <button onClick={() => handleStatusUpdate(entry.id, 'BOOKED')} className={getBtnClass('green')}>Completa</button>
                         <button onClick={() => handleStatusUpdate(entry.id, 'PENDING')} className={btnDefault}>Attesa</button>
                         <button onClick={() => handleStatusUpdate(entry.id, 'REJECTED')} className={getBtnClass('red')}>Rifiuta</button>
@@ -514,14 +538,24 @@ export const WaitlistManager: React.FC = () => {
                                                         )}
                                                     </div>
                                                 </div>
-                                                <button
-                                                    onClick={() => entry.client_id ? navigate(`/clients/${entry.client_id}`, { state: { fromWaitlist: true } }) : alert('Scheda cliente non disponibile')}
-                                                    className="text-text-muted hover:text-text-primary p-1 rounded-md hover:bg-white/10 transition-colors"
-                                                    title={entry.client_id ? "Vai alla scheda cliente" : "Scheda non disponibile"}
-                                                >
-                                                    <ArrowUpRight size={16} />
-                                                </button>
+
                                             </div>
+                                            {/* Image Thumbnails (Desktop) */}
+                                            {entry.images && entry.images.length > 0 && (
+                                                <div className="flex gap-2 mt-2">
+                                                    {entry.images.slice(0, 3).map((img, i) => (
+                                                        <div key={i} className="relative w-10 h-10 rounded overflow-hidden border border-border cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setViewingImage(img)}>
+                                                            <img src={img} alt="Thumb" className="w-full h-full object-cover" />
+                                                        </div>
+                                                    ))}
+                                                    {entry.images.length > 3 && (
+                                                        <div className="w-10 h-10 rounded border border-border bg-bg-tertiary flex items-center justify-center text-[10px] text-text-muted">
+                                                            +{entry.images.length - 3}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
                                         </td>
                                         <td className="p-4">
                                             <div className="flex flex-wrap gap-1 mb-1">
@@ -631,6 +665,17 @@ export const WaitlistManager: React.FC = () => {
                                     <p className="text-sm text-text-secondary italic bg-bg-tertiary/50 p-2 rounded break-words">"{entry.description}"</p>
                                 )}
 
+                                {/* Image Preview (Mobile) */}
+                                {entry.images && entry.images.length > 0 && (
+                                    <div className="flex gap-2 overflow-x-auto pb-1 mt-1">
+                                        {entry.images.map((img, i) => (
+                                            <div key={i} className="relative w-16 h-16 flex-shrink-0 rounded overflow-hidden border border-border cursor-pointer" onClick={() => setViewingImage(img)}>
+                                                <img src={img} alt="Thumb" className="w-full h-full object-cover" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
                                 {/* Notes Section for Mobile */}
                                 <div className="border-t border-border/50 pt-2">
                                     {editingNoteId === entry.id ? (
@@ -689,28 +734,82 @@ export const WaitlistManager: React.FC = () => {
                 </div>
 
                 {/* Undo Toast */}
-                {undoAction && (
-                    <div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 bg-black/90 text-white px-6 py-4 rounded-xl border border-white/10 shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-5 z-50">
-                        <div className="flex flex-col">
-                            <span className="font-bold text-sm">Stato Aggiornato</span>
-                            <span className="text-xs text-gray-400">Hai cambiato lo stato di una richiesta.</span>
+                {
+                    undoAction && (
+                        <div className="fixed bottom-6 right-6 md:bottom-8 md:right-8 bg-black/90 text-white px-6 py-4 rounded-xl border border-white/10 shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-5 z-50">
+                            <div className="flex flex-col">
+                                <span className="font-bold text-sm">Stato Aggiornato</span>
+                                <span className="text-xs text-gray-400">Hai cambiato lo stato di una richiesta.</span>
+                            </div>
+                            <div className="h-8 w-px bg-white/20"></div>
+                            <button
+                                onClick={handleUndo}
+                                className="bg-white text-black px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition-colors"
+                            >
+                                Annulla
+                            </button>
                         </div>
-                        <div className="h-8 w-px bg-white/20"></div>
+                    )
+                }
+            </div >
+
+            {/* Lightbox for Images */}
+            {
+                viewingImage && (
+                    <div
+                        className="fixed inset-0 bg-black bg-opacity-90 z-[100] flex items-center justify-center p-4 cursor-zoom-out backdrop-blur-sm"
+                        style={{ zIndex: 9999 }}
+                        onClick={() => setViewingImage(null)}
+                    >
+                        <img
+                            src={viewingImage}
+                            alt="Full size"
+                            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                        />
                         <button
-                            onClick={handleUndo}
-                            className="bg-white text-black px-4 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition-colors"
+                            onClick={() => setViewingImage(null)}
+                            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
                         >
-                            Annulla
+                            <X size={24} />
                         </button>
                     </div>
-                )}
-            </div>
+                )
+            }
 
             <ManualWaitlistModal
                 isOpen={isManualEntryOpen}
                 onClose={() => setIsManualEntryOpen(false)}
                 studioId={user?.studio_id || 'studio-1'}
             />
+
+            {
+                selectedEntryForBooking && (
+                    <AppointmentDrawer
+                        isOpen={!!selectedEntryForBooking}
+                        onClose={() => setSelectedEntryForBooking(null)}
+                        selectedDate={null}
+                        selectedAppointment={null}
+                        initialClientId={selectedEntryForBooking.client_id}
+                        initialData={{
+                            notes: `[DA LISTA D'ATTESA]\nDescrizione: ${selectedEntryForBooking.description || 'Nessuna'}\nNote Interne: ${selectedEntryForBooking.notes || 'Nessuna'}`,
+                            images: selectedEntryForBooking.images,
+                            service_name: selectedEntryForBooking.description ? selectedEntryForBooking.description.slice(0, 30) : 'Nuovo Appuntamento'
+                        }}
+                        onSave={async (data) => {
+                            try {
+                                await api.appointments.create(data as any);
+                                await handleStatusUpdate(selectedEntryForBooking.id, 'BOOKED');
+                                queryClient.invalidateQueries({ queryKey: ['waitlist'] });
+                                setSelectedEntryForBooking(null);
+                                alert('Appuntamento creato con successo!');
+                            } catch (err) {
+                                console.error(err);
+                                alert('Errore nella creazione appuntamento');
+                            }
+                        }}
+                    />
+                )
+            }
         </div >
     );
 };

@@ -337,10 +337,10 @@ export const Calendar: React.FC = () => {
 
     return (
         <div className={clsx(
-            "flex flex-col relative transition-all duration-300 h-full overflow-hidden",
+            "flex flex-col relative transition-all duration-300",
             isMobileFullscreen
-                ? "fixed inset-0 z-[100] bg-bg-primary p-2 pt-safe pb-safe"
-                : "p-4 pt-20 md:pt-8"
+                ? "fixed inset-0 z-[100] bg-bg-primary h-full overflow-hidden p-2 pt-safe pb-safe"
+                : "h-full p-1 pb-24 md:p-4 md:pb-4 pt-0 md:pt-8 flex flex-col overflow-hidden"
         )}>
             <div className="flex justify-end mb-2">
                 <button
@@ -373,15 +373,17 @@ export const Calendar: React.FC = () => {
 
 
 
-            {view === 'month' && (
-                <MonthView
-                    currentDate={currentDate}
-                    appointments={appointments}
-                    artists={artists}
-                    onDateClick={handleDateClick}
-                    onAppointmentClick={handleAppointmentClick}
-                />
-            )}
+            {
+                view === 'month' && (
+                    <MonthView
+                        currentDate={currentDate}
+                        appointments={appointments}
+                        artists={artists}
+                        onDateClick={handleDateClick}
+                        onAppointmentClick={handleAppointmentClick}
+                    />
+                )
+            }
             {view === 'week' && <WeekView />}
             {view === 'day' && <DayView />}
             {view === 'year' && <YearView />}
@@ -408,6 +410,6 @@ export const Calendar: React.FC = () => {
                 clientPhone={reviewModalData.clientPhone}
                 studioId={reviewModalData.studioId}
             />
-        </div>
+        </div >
     );
 };

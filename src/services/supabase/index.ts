@@ -130,7 +130,6 @@ export class SupabaseRepository implements IRepository {
                 return {
                     ...userData,
                     role: (membership?.role as UserRole) || userData.role || 'STUDENT',
-                    role: (membership?.role as UserRole) || userData.role || 'STUDENT',
                     studio_id: membership?.studio_id || userData.studio_id || 'default',
                     permissions: {
                         can_view_clients: membership?.can_view_clients ?? true,
@@ -155,7 +154,6 @@ export class SupabaseRepository implements IRepository {
                 id: data.session.user.id,
                 email: data.session.user.email!,
                 full_name: 'User',
-                role: (membership?.role as UserRole) || 'STUDENT',
                 role: (membership?.role as UserRole) || 'STUDENT',
                 studio_id: membership?.studio_id || 'default',
                 permissions: {
@@ -1258,7 +1256,7 @@ export class SupabaseRepository implements IRepository {
         list: async (studioId: string): Promise<WaitlistEntry[]> => {
             const { data, error } = await supabase
                 .from('waitlist_entries')
-                .select('id, studio_id, client_id, email, phone, client_name, preferred_artist_id, styles, description, status, created_at, interest_type, notes')
+                .select('id, studio_id, client_id, email, phone, client_name, preferred_artist_id, styles, description, status, created_at, interest_type, notes, images')
                 .eq('studio_id', studioId)
                 .order('created_at', { ascending: false });
             if (error) throw error;
@@ -1610,7 +1608,25 @@ Formatta la risposta ESCLUSIVAMENTE come un JSON array di stringhe, esempio: ["C
     };
 
     googleCalendar = {
-        getAuthUrl: async (_userId: string): Promise<string> => { throw new Error('Use window.location.href redirect instead'); },
+        getAuthUrl: async (userId: string): Promise<string> => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error('No active session');
+
+            const { data, error } = await supabase.functions.invoke('google-auth', {
+                body: {
+                    action: 'get_auth_url',
+                    user_id: userId,
+                    redirect_to: window.location.href
+                },
+                headers: {
+                    Authorization: `Bearer ${session.access_token}`
+                }
+            });
+
+            if (error) throw error;
+            if (data?.error) throw new Error(data.error);
+            return data.url;
+        },
         connect: async (_userId: string, _code: string): Promise<void> => { throw new Error('Handled by Edge Function callback'); },
         disconnect: async (userId: string): Promise<void> => {
             const { error } = await supabase
@@ -1802,6 +1818,31 @@ Formatta la risposta ESCLUSIVAMENTE come un JSON array di stringhe, esempio: ["C
             // Simplified approximation or query clients first.
             // For now return dummy or 0
             return { signed_count: 0, pending_count: 0 };
+        }
+    };
+
+    googleSheets = {
+        listSpreadsheets: async (): Promise<{ id: string; name: string }[]> => {
+            const { data, error } = await supabase.functions.invoke('fetch-google-sheets', {
+                body: { action: 'list_spreadsheets' }
+            });
+            if (error) throw error;
+            if (data.error) throw new Error(data.error);
+            return data;
+        },
+        getSheetsMetadata: async (spreadsheetId: string): Promise<string[]> => {
+            const { data, error } = await supabase.functions.invoke('fetch-google-sheets', {
+                body: { action: 'get_sheets_metadata', spreadsheetId }
+            });
+            if (error) throw error;
+            if (data.error) throw new Error(data.error);
+            return data;
+        },
+        syncClients: async (studioId: string): Promise<void> => {
+            const { error } = await supabase.functions.invoke('webhook-clients-sync', {
+                body: { table: 'clients', record: { studio_id: studioId }, type: 'MANUAL_SYNC' }
+            });
+            if (error) throw error;
         }
     };
 }
