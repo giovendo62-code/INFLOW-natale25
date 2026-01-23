@@ -1259,7 +1259,7 @@ export class SupabaseRepository implements IRepository {
         list: async (studioId: string): Promise<WaitlistEntry[]> => {
             const { data, error } = await supabase
                 .from('waitlist_entries')
-                .select('id, studio_id, client_id, email, phone, client_name, preferred_artist_id, styles, description, status, created_at, interest_type, notes, images')
+                .select('*') // Select all columns to avoid crashing if 'images' is missing in DB
                 .eq('studio_id', studioId)
                 .order('created_at', { ascending: false });
             if (error) throw error;
@@ -1288,8 +1288,8 @@ export class SupabaseRepository implements IRepository {
                 p_styles: data.styles,
                 p_interest_type: data.interest_type,
                 p_description: data.description,
-                p_artist_pref_id: data.artist_pref_id || null, // FIX: Ensure empty string becomes null for UUID type
-                p_images: data.images
+                p_artist_pref_id: data.artist_pref_id || null // FIX: Ensure empty string becomes null for UUID type
+                // p_images parameter removed to match production RPC signature
             });
             if (error) throw error;
             return entry as Pick<WaitlistEntry, 'id'>;
