@@ -431,6 +431,7 @@ export interface Studio {
     spreadsheet_id?: string;
     sheet_name?: string;
     auto_sync_enabled?: boolean;
+    connected_user_id?: string;
     mapping?: Record<string, string>;
   };
   ai_settings?: {

@@ -381,7 +381,7 @@ const GoogleSheetsConfig: React.FC<{ studio: Studio, setStudio: (s: Studio) => v
     const updateConfig = (key: string, value: any) => {
         const newConfig = { ...studio.google_sheets_config, [key]: value };
         if (key === 'auto_sync_enabled' && value === true) {
-            (newConfig as any).connected_user_id = user?.id; // Bind to current user
+            newConfig.connected_user_id = user?.id; // Bind to current user
         }
         setStudio({ ...studio, google_sheets_config: newConfig });
     };
