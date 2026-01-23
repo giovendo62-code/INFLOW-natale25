@@ -36,7 +36,7 @@ export const CalendarHeader: React.FC<CalendarHeaderProps> = ({
     userRole
 }) => {
     return (
-        <div className="flex flex-col gap-3 mb-4">
+        <div className="flex flex-col gap-3 mb-2 md:mb-4">
             {/* Top Row: Date, Nav, and Primary Actions (Mobile optimized) */}
             <div className="flex flex-wrap items-center justify-between gap-2">
 

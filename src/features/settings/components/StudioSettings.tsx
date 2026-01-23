@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Building, Globe, MapPin, Save, Trash2, UploadCloud, ExternalLink } from 'lucide-react';
+import { Building, Globe, MapPin, Save, Trash2, UploadCloud, ExternalLink, RefreshCw, FileSpreadsheet, AlertTriangle } from 'lucide-react';
 import { api } from '../../../services/api';
 import { useAuth } from '../../auth/AuthContext';
 import { DragDropUpload } from '../../../components/DragDropUpload';
-import type { Studio } from '../../../services/types';
+import type { Studio, User } from '../../../services/types';
 
 export const StudioSettings: React.FC = () => {
     const { user } = useAuth();
@@ -237,6 +237,7 @@ export const StudioSettings: React.FC = () => {
                         </div>
                     </div>
 
+
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 pt-4 border-t border-border">
                         <div className="xl:col-span-2">
                             <h3 className="text-text-primary font-medium mb-4">Configurazione AI</h3>
@@ -257,6 +258,26 @@ export const StudioSettings: React.FC = () => {
                             </div>
                         </div>
                     </div>
+
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 pt-4 border-t border-border">
+                        <div className="xl:col-span-2">
+                            <h3 className="text-text-primary font-medium mb-4 flex items-center gap-2">
+                                <span className="text-green-500">📊</span>
+                                Integrazione Google Sheets
+                            </h3>
+                            <p className="text-sm text-text-muted mb-4">
+                                Sincronizza automaticamente la lista clienti su un Foglio Google.
+                            </p>
+                        </div>
+
+                        {/* Google Sheets Config */}
+                        <GoogleSheetsConfig
+                            studio={studio}
+                            setStudio={setStudio}
+                            user={user}
+                        />
+                    </div>
+
 
                     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 pt-4 border-t border-border">
                         <div className="xl:col-span-2">
@@ -312,5 +333,155 @@ export const StudioSettings: React.FC = () => {
                 </form>
             </div >
         </div >
+    );
+};
+
+// Sub-component for Google Sheets Logic
+const GoogleSheetsConfig: React.FC<{ studio: Studio, setStudio: (s: Studio) => void, user: User | null }> = ({ studio, setStudio, user }) => {
+    const [spreadsheets, setSpreadsheets] = useState<{ id: string, name: string }[]>([]);
+    const [loadingSheets, setLoadingSheets] = useState(false);
+    const [syncing, setSyncing] = useState(false);
+
+    // Check if user has connected Google
+    const isGoogleConnected = user?.integrations?.google_calendar?.is_connected;
+
+    useEffect(() => {
+        if (isGoogleConnected) {
+            loadSpreadsheets();
+        }
+    }, [isGoogleConnected]);
+
+    const loadSpreadsheets = async () => {
+        setLoadingSheets(true);
+        try {
+            const list = await api.googleSheets.listSpreadsheets();
+            setSpreadsheets(list);
+        } catch (err) {
+            console.error("Failed to load spreadsheets", err);
+        } finally {
+            setLoadingSheets(false);
+        }
+    };
+
+    const handleSyncNow = async () => {
+        if (!studio.id) return;
+        setSyncing(true);
+        try {
+            await api.settings.updateStudio(studio.id, { google_sheets_config: studio.google_sheets_config });
+            await api.googleSheets.syncClients(studio.id);
+            alert("Sincronizzazione avviata con successo!");
+        } catch (err) {
+            console.error("Sync failed", err);
+            alert("Errore durante la sincronizzazione. Controlla che il foglio esista e che i permessi siano corretti.");
+        } finally {
+            setSyncing(false);
+        }
+    };
+
+    const updateConfig = (key: string, value: any) => {
+        const newConfig = { ...studio.google_sheets_config, [key]: value };
+        if (key === 'auto_sync_enabled' && value === true) {
+            (newConfig as any).connected_user_id = user?.id; // Bind to current user
+        }
+        setStudio({ ...studio, google_sheets_config: newConfig });
+    };
+
+    if (!isGoogleConnected) {
+        return (
+            <div className="xl:col-span-2 bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-xl flex items-center gap-4">
+                <AlertTriangle className="text-yellow-500" />
+                <div>
+                    <p className="text-yellow-200 font-medium">Account Google non collegato</p>
+                    <p className="text-xs text-yellow-200/70 mb-2">Per sincronizzare i fogli, collega prima il tuo account Google.</p>
+                    <a href="/settings?tab=integrations" className="text-xs underline text-yellow-200 hover:text-white">Vai a Integrazioni</a>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="xl:col-span-2 space-y-4 bg-bg-tertiary p-4 rounded-xl border border-border">
+            {/* Spreadsheet Selection */}
+            <div>
+                <label className="block text-sm font-medium text-text-muted mb-1">Seleziona Foglio Google</label>
+                <div className="flex gap-2">
+                    <select
+                        value={studio.google_sheets_config?.spreadsheet_id || ''}
+                        onChange={e => updateConfig('spreadsheet_id', e.target.value)}
+                        className="flex-1 bg-bg-secondary border border-border rounded-lg px-4 py-2 text-text-primary focus:border-accent focus:outline-none"
+                        disabled={loadingSheets}
+                    >
+                        <option value="">-- Seleziona un file --</option>
+                        {spreadsheets.map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                    </select>
+                    <button
+                        type="button"
+                        onClick={loadSpreadsheets}
+                        className="p-2 bg-bg-secondary border border-border rounded-lg text-text-muted hover:text-text-primary"
+                        title="Ricarica lista"
+                    >
+                        <RefreshCw size={18} className={loadingSheets ? 'animate-spin' : ''} />
+                    </button>
+                </div>
+            </div>
+
+            {/* Sheet Name */}
+            <div>
+                <label className="block text-sm font-medium text-text-muted mb-1">Nome Tabella (Tab)</label>
+                <input
+                    type="text"
+                    value={studio.google_sheets_config?.sheet_name || 'Clients'}
+                    onChange={e => updateConfig('sheet_name', e.target.value)}
+                    className="w-full bg-bg-secondary border border-border rounded-lg px-4 py-2 text-text-primary focus:border-accent focus:outline-none"
+                    placeholder="Es. Clients"
+                />
+            </div>
+
+            {/* Auto Sync Toggle */}
+            <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center gap-2">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={studio.google_sheets_config?.auto_sync_enabled || false}
+                            onChange={e => updateConfig('auto_sync_enabled', e.target.checked)}
+                        />
+                        <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-accent/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent"></div>
+                        <span className="ml-3 text-sm font-medium text-text-primary">Sync Automatico</span>
+                    </label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    {studio.google_sheets_config?.spreadsheet_id && (
+                        <a
+                            href={`https://docs.google.com/spreadsheets/d/${studio.google_sheets_config.spreadsheet_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-2 text-green-400 hover:bg-green-400/10 rounded-lg transition-colors"
+                            title="Apri Foglio"
+                        >
+                            <FileSpreadsheet size={20} />
+                        </a>
+                    )}
+
+                    <button
+                        type="button"
+                        onClick={handleSyncNow}
+                        disabled={syncing || !studio.google_sheets_config?.spreadsheet_id}
+                        className="flex items-center gap-2 px-4 py-2 bg-bg-secondary hover:bg-bg-primary border border-border rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                    >
+                        <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
+                        {syncing ? 'Sincronizzazione...' : 'Sync Ora'}
+                    </button>
+                </div>
+            </div>
+
+            <p className="text-xs text-text-muted">
+                Nota: Il "Sync Ora" salva anche le modifiche correnti.
+            </p>
+        </div>
     );
 };

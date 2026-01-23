@@ -37,6 +37,7 @@ export const MonthView: React.FC<MonthViewProps> = ({
     const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
 
     const days = eachDayOfInterval({ start: startDate, end: endDate });
+    const weeksCount = Math.ceil(days.length / 7);
 
     const getAppointmentsForDay = (date: Date) => {
         return appointments.filter(apt => isSameDay(new Date(apt.start_time), date));
@@ -56,7 +57,10 @@ export const MonthView: React.FC<MonthViewProps> = ({
 
 
             {/* Calendar Grid */}
-            <div className="flex-1 grid grid-cols-7 grid-rows-5 md:grid-rows-6 overflow-hidden">
+            <div
+                className="flex-1 grid grid-cols-7 overflow-hidden"
+                style={{ gridTemplateRows: `repeat(${weeksCount}, minmax(0, 1fr))` }}
+            >
                 {days.map((day) => {
                     const dayApts = getAppointmentsForDay(day);
                     const isCurrentMonth = isSameMonth(day, monthStart);
@@ -67,14 +71,14 @@ export const MonthView: React.FC<MonthViewProps> = ({
                             key={day.toString()}
                             onClick={() => onDateClick(day)}
                             className={clsx(
-                                "p-1 md:p-2 border-b border-r border-border cursor-pointer transition-colors hover:bg-white/5 overflow-hidden flex flex-col",
+                                "p-0.5 md:p-2 border-b border-r border-border cursor-pointer transition-colors hover:bg-white/5 overflow-hidden flex flex-col",
                                 !isCurrentMonth && "bg-bg-primary/30 text-text-muted",
                                 isToday && "bg-accent/5"
                             )}
                         >
                             <div className="flex items-center justify-between mb-0.5 md:mb-1">
                                 <span className={clsx(
-                                    "text-xs md:text-sm font-medium w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full",
+                                    "text-[10px] md:text-sm font-medium w-5 h-5 md:w-7 md:h-7 flex items-center justify-center rounded-full",
                                     isToday ? "bg-accent text-white" : "text-text-secondary"
                                 )}>
                                     {format(day, 'd')}

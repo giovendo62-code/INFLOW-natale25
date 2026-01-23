@@ -91,16 +91,15 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onStartSignature }) => {
                     <thead className="bg-bg-tertiary text-text-muted uppercase text-xs font-semibold">
                         <tr>
                             <th className="p-4">Cliente</th>
-                            <th className="p-4">Contatti</th>
                             <th className="p-4">Stato Consenso</th>
                             <th className="p-4 text-right">Azioni</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-border/50">
                         {loading ? (
-                            <tr><td colSpan={4} className="p-8 text-center text-text-muted">Caricamento...</td></tr>
+                            <tr><td colSpan={3} className="p-8 text-center text-text-muted">Caricamento...</td></tr>
                         ) : clients.length === 0 ? (
-                            <tr><td colSpan={4} className="p-8 text-center text-text-muted">Nessun cliente trovato.</td></tr>
+                            <tr><td colSpan={3} className="p-8 text-center text-text-muted">Nessun cliente trovato.</td></tr>
                         ) : (
                             clients.map(client => {
                                 const consent = clientConsents[client.id];
@@ -109,10 +108,6 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onStartSignature }) => {
                                         <td className="p-4">
                                             <div className="font-medium text-text-primary">{client.full_name}</div>
                                             <div className="text-xs text-text-muted">CF: {client.fiscal_code || '-'}</div>
-                                        </td>
-                                        <td className="p-4 text-sm text-text-muted">
-                                            <div>{client.email}</div>
-                                            <div>{client.phone}</div>
                                         </td>
                                         <td className="p-4">
                                             {consent ? (
@@ -187,16 +182,7 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onStartSignature }) => {
                                     )}
                                 </div>
 
-                                <div className="text-sm text-text-muted space-y-1 bg-bg-tertiary/30 p-3 rounded-lg">
-                                    <div className="flex justify-between">
-                                        <span>Email:</span>
-                                        <span className="text-text-primary">{client.email || '-'}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Telefono:</span>
-                                        <span className="text-text-primary">{client.phone || '-'}</span>
-                                    </div>
-                                </div>
+
 
                                 <div className="pt-2 border-t border-border flex items-center justify-between">
                                     <div className="text-xs">

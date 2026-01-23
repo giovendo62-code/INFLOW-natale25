@@ -5,15 +5,15 @@
 /* Definitive Mobile Overflow Fix */
 html,
 body {
-    height: auto;
-    min-height: 100%;
+    height: 100%;
     width: 100%;
     max-width: 100vw;
     margin: 0;
     padding: 0;
-    overflow-x: hidden !important;
-    overflow-y: visible;
-    position: relative;
+    overflow: hidden;
+    /* Lock body */
+    overscroll-behavior: none;
+    /* Prevent rubber banding */
     -webkit-overflow-scrolling: touch;
 }
 
