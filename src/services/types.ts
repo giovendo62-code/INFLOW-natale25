@@ -329,11 +329,6 @@ export interface IRepository {
     upload(bucket: string, path: string, file: File): Promise<string>; // Returns public URL
     delete(bucket: string, path: string): Promise<void>;
   };
-  googleSheets: {
-    listSpreadsheets(): Promise<{ id: string; name: string }[]>;
-    getSheetsMetadata(spreadsheetId: string): Promise<string[]>; // Returns sheet names
-    syncClients(studioId: string): Promise<void>; // Triggers manual sync via Edge Function
-  };
 }
 
 export type RentType = 'FIXED' | 'PERCENTAGE' | 'PRESENCES';
@@ -431,7 +426,6 @@ export interface Studio {
     spreadsheet_id?: string;
     sheet_name?: string;
     auto_sync_enabled?: boolean;
-    connected_user_id?: string;
     mapping?: Record<string, string>;
   };
   ai_settings?: {

@@ -125,10 +125,10 @@ export const GoogleCalendarDrawer: React.FC<GoogleCalendarDrawerProps> = ({ isOp
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex justify-end isolation-auto">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm touch-none" onClick={onClose} />
-            <div className="relative w-full max-w-md bg-bg-secondary h-[100dvh] shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 border-l border-border">
-                <div className="flex-1 overflow-y-auto p-6 overscroll-contain">
+        <div className="fixed inset-0 z-50 flex justify-end">
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative w-full max-w-md bg-bg-secondary h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 border-l border-border">
+                <div className="flex-1 overflow-y-auto p-6">
                     <div className="flex justify-between items-center mb-6">
                         <h2 className="text-xl font-bold text-white flex items-center gap-2">
                             <Globe className="text-blue-500" /> Google Calendar

@@ -20,16 +20,14 @@ export const IntegrationsTab: React.FC<IntegrationsTabProps> = ({ artist, onUpda
 
     // ... handleConnect, handleDisconnect, handleSyncNow ...
 
-    const handleConnect = async () => {
+    const handleConnect = () => {
         setConnecting(true);
-        try {
-            const url = await api.googleCalendar.getAuthUrl(artist.id);
-            window.location.href = url;
-        } catch (e) {
-            console.error(e);
-            alert("Errore generazione link di accesso");
-            setConnecting(false);
-        }
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        // Construct the redirect URL for the Edge Function
+        // We pass artist.id as user_id so the token is saved for this specific artist
+        const loginUrl = `${supabaseUrl}/functions/v1/google-auth/login?user_id=${artist.id}&redirect_to=${encodeURIComponent(window.location.href)}`;
+
+        window.location.href = loginUrl;
     };
 
     const handleDisconnect = async () => {

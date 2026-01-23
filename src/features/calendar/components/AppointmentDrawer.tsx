@@ -17,7 +17,6 @@ interface AppointmentDrawerProps {
     onSave: (data: Partial<Appointment>) => Promise<void>;
     onDelete?: (id: string) => Promise<void>;
     initialClientId?: string;
-    initialData?: Partial<Appointment>;
 }
 
 export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
@@ -27,8 +26,7 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
     selectedAppointment,
     onSave,
     onDelete,
-    initialClientId,
-    initialData
+    initialClientId
 }) => {
     const { user } = useAuth();
     const { isPrivacyMode } = useLayoutStore();
@@ -38,7 +36,6 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
 
     // State for visual mode (Read-Only vs Edit)
     const [isEditing, setIsEditing] = useState(false);
-    const [viewingImage, setViewingImage] = useState<string | null>(null);
 
     // Permission Check: Can view financials?
     // Owner/Manager: Always YES
@@ -88,11 +85,14 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
     useEffect(() => {
         if (isOpen && user?.studio_id) {
             const loadData = async () => {
+                console.log('AppointmentDrawer: Loading data for studio:', user.studio_id);
                 const [clientsList, teamList] = await Promise.all([
                     api.clients.list(undefined, user.studio_id!),
                     api.settings.listTeamMembers(user.studio_id!)
                 ]);
+                console.log('AppointmentDrawer: Raw Team List:', teamList);
                 const filtered = teamList.filter(m => (m.role || '').toUpperCase() === 'ARTIST');
+                console.log('AppointmentDrawer: Filtered Artists:', filtered);
                 setClients(clientsList);
                 setArtists(filtered);
             };
@@ -125,17 +125,17 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
             }
 
             setFormData({
-                service_name: initialData?.service_name || '',
-                client_id: initialClientId || initialData?.client_id || '',
-                artist_id: initialData?.artist_id || defaultArtist,
-                start_time: initialData?.start_time || baseDate.toISOString(),
-                end_time: initialData?.end_time || new Date(baseDate.getTime() + 60 * 60 * 1000).toISOString(), // +1 hour
+                service_name: '',
+                client_id: initialClientId || '',
+                artist_id: defaultArtist,
+                start_time: baseDate.toISOString(),
+                end_time: new Date(baseDate.getTime() + 60 * 60 * 1000).toISOString(), // +1 hour
                 status: 'PENDING',
-                notes: initialData?.notes || '',
-                images: initialData?.images || []
+                notes: '',
+                images: []
             });
         }
-    }, [selectedAppointment, selectedDate, isOpen, user, artists, initialClientId, initialData]);
+    }, [selectedAppointment, selectedDate, isOpen, user, artists, initialClientId]);
 
     const handleUpload = async (file: File) => {
         try {
@@ -174,14 +174,14 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
         <>
             {/* Backdrop */}
             <div
-                className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] transition-opacity"
+                className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 transition-opacity"
                 onClick={onClose}
             />
 
             {/* Drawer */}
-            <div className="fixed top-0 right-0 h-[100dvh] w-full md:w-[500px] bg-bg-secondary border-l border-border shadow-2xl z-[80] transform transition-transform duration-300 flex flex-col overflow-x-hidden">
+            <div className="fixed top-0 right-0 h-[100dvh] w-full md:w-[500px] bg-bg-secondary border-l border-border shadow-2xl z-50 transform transition-transform duration-300 flex flex-col overflow-x-hidden">
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-border bg-bg-secondary sticky top-0 z-[81]">
+                <div className="flex items-center justify-between p-6 border-b border-border bg-bg-secondary sticky top-0 z-10">
                     <div className="flex items-center gap-3">
                         <button
                             onClick={onClose}
@@ -213,7 +213,7 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
                                     <h3 className="text-sm font-medium text-text-secondary mb-3 uppercase tracking-wider">Immagini di Riferimento</h3>
                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                                         {formData.images.map((img, idx) => (
-                                            <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-border cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setViewingImage(img)}>
+                                            <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-border cursor-pointer hover:opacity-80 transition-opacity" onClick={() => window.open(img, '_blank')}>
                                                 <img src={img} alt="Referenza" className="w-full h-full object-cover" />
                                             </div>
                                         ))}
@@ -496,7 +496,7 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
                                 {formData.images && formData.images.length > 0 && (
                                     <div className="grid grid-cols-3 gap-3 mt-4">
                                         {formData.images.map((img, idx) => (
-                                            <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-border group cursor-pointer" onClick={() => setViewingImage(img)}>
+                                            <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-border group cursor-pointer" onClick={() => window.open(img, '_blank')}>
                                                 <img src={img} alt="Referenza" className="w-full h-full object-cover" />
                                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                                     <span className="text-white text-xs font-medium">Apri</span>
@@ -613,26 +613,6 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
                     </div>
                 </div>
             </div>
-            {/* Lightbox for Images */}
-            {viewingImage && (
-                <div
-                    className="fixed inset-0 bg-black bg-opacity-90 z-[100] flex items-center justify-center p-4 cursor-zoom-out backdrop-blur-sm"
-                    style={{ zIndex: 9999 }}
-                    onClick={() => setViewingImage(null)}
-                >
-                    <img
-                        src={viewingImage}
-                        alt="Full size"
-                        className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                    />
-                    <button
-                        onClick={() => setViewingImage(null)}
-                        className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
-                    >
-                        <X size={24} />
-                    </button>
-                </div>
-            )}
         </>
     );
 };

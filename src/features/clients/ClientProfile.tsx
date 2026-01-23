@@ -26,23 +26,12 @@ export const ClientProfile: React.FC = () => {
     const [consents, setConsents] = useState<ClientConsent[]>([]);
     const [selectedAppointments, setSelectedAppointments] = useState<string[]>([]);
     const [activeTab, setActiveTab] = useState('gallery'); // Default to Gallery
-    const [viewingImage, setViewingImage] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
     const [isEditing, setIsEditing] = useState(false);
     const [formData, setFormData] = useState<Partial<Client>>({});
 
     const [isAppointmentDrawerOpen, setIsAppointmentDrawerOpen] = useState(false);
-    const [isWaitlistBooking, setIsWaitlistBooking] = useState(false);
-
-    // Scroll Logic for Header
-    const [showHeader, setShowHeader] = useState(true);
-
-    const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-        const currentScrollY = e.currentTarget.scrollTop;
-        // Show header only if we are at the very top (within 50px)
-        setShowHeader(currentScrollY < 50);
-    };
 
     const isNewClient = id === 'new';
     const fromWaitlist = location.state?.fromWaitlist;
@@ -302,14 +291,6 @@ export const ClientProfile: React.FC = () => {
                 end_time: appointmentData.end_time || new Date().toISOString(),
                 status: 'PENDING'
             } as Appointment);
-
-
-            // Update Waitlist Status if applicable (Auto-Conversion) - ONLY if booking from waitlist context
-            if (isWaitlistBooking && waitlistEntry && ['PENDING', 'IN_PROGRESS', 'CONTACTED'].includes(waitlistEntry.status)) {
-                await api.waitlist.updateStatus(waitlistEntry.id, 'BOOKED');
-                setWaitlistEntry(prev => prev ? { ...prev, status: 'BOOKED' } : null);
-            }
-
             setIsAppointmentDrawerOpen(false);
             alert('Appuntamento creato con successo!');
         } catch (error) {
@@ -384,13 +365,9 @@ export const ClientProfile: React.FC = () => {
     if (!client) return <div className="p-8 text-center text-red-500">Cliente non trovato</div>;
 
     return (
-        <div className="flex flex-col h-full bg-bg-primary overflow-hidden relative">
+        <div className="flex flex-col h-full bg-bg-primary overflow-hidden">
             {/* Header */}
-            <div className={clsx(
-                "w-full flex items-center gap-4 p-6 border-b border-border bg-bg-secondary/50 backdrop-blur-sm z-10 transition-transform duration-300",
-                "fixed top-0 left-0 md:relative md:transform-none md:bg-bg-primary md:border-none", // Mobile: Fixed. Desktop: Relative/Normal flow
-                !showHeader && "-translate-y-full md:translate-y-0"
-            )}>
+            <div className="flex items-center gap-4 p-6 border-b border-border bg-bg-secondary/50 backdrop-blur-sm sticky top-0 z-10">
                 <button
                     onClick={handleBack}
                     className="p-2 hover:bg-white/5 rounded-full text-text-secondary transition-colors"
@@ -422,10 +399,7 @@ export const ClientProfile: React.FC = () => {
                 </div>
             </div>
 
-            <div
-                className="flex-1 overflow-y-auto p-4 md:p-8 pt-[88px] md:pt-8"
-                onScroll={handleScroll}
-            >
+            <div className="flex-1 overflow-y-auto p-4 md:p-8">
                 {/* Profile Header Card */}
                 <div className="bg-bg-secondary rounded-2xl border border-border p-6 md:p-8 flex flex-col xl:flex-row gap-8 mb-8">
                     {/* Avatar / Initials */}
@@ -616,10 +590,7 @@ export const ClientProfile: React.FC = () => {
                                             Modifica Profilo
                                         </button>
                                         <button
-                                            onClick={() => {
-                                                setIsWaitlistBooking(false);
-                                                setIsAppointmentDrawerOpen(true);
-                                            }}
+                                            onClick={() => setIsAppointmentDrawerOpen(true)}
                                             className="px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-lg font-medium transition-colors shadow-lg shadow-accent/20"
                                         >
                                             Nuovo Appuntamento
@@ -687,7 +658,7 @@ export const ClientProfile: React.FC = () => {
                                         {waitlistEntry.images && waitlistEntry.images.length > 0 ? (
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
                                                 {waitlistEntry.images.map((url, i) => (
-                                                    <div key={i} className="aspect-square rounded-lg overflow-hidden border border-border bg-bg-tertiary" onClick={() => setViewingImage(url)}>
+                                                    <div key={i} className="aspect-square rounded-lg overflow-hidden border border-border bg-bg-tertiary" onClick={() => window.open(url, '_blank')}>
                                                         <img src={url} alt={`Riferimento ${i}`} className="w-full h-full object-cover hover:scale-105 transition-transform cursor-pointer" />
                                                     </div>
                                                 ))}
@@ -696,18 +667,8 @@ export const ClientProfile: React.FC = () => {
                                             <p className="text-text-secondary italic mt-1">Nessuna immagine allegata.</p>
                                         )}
                                     </div>
-                                    <div className="pt-4 border-t border-border mt-4 flex justify-between items-center">
+                                    <div className="pt-4 border-t border-border mt-4">
                                         <p className="text-xs text-text-muted">Richiesta inviata il: {new Date(waitlistEntry.created_at).toLocaleDateString()}</p>
-                                        <button
-                                            onClick={() => {
-                                                setIsWaitlistBooking(true);
-                                                setIsAppointmentDrawerOpen(true);
-                                            }}
-                                            className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-accent/20 transition-all flex items-center gap-2"
-                                        >
-                                            <Calendar size={16} />
-                                            Converti in Appuntamento
-                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -895,39 +856,9 @@ export const ClientProfile: React.FC = () => {
                     selectedDate={null}
                     selectedAppointment={null}
                     initialClientId={client.id}
-
-                    initialData={
-                        (isWaitlistBooking && waitlistEntry && ['PENDING', 'IN_PROGRESS', 'CONTACTED'].includes(waitlistEntry.status)) ? {
-                            notes: `[DA LISTA D'ATTESA]\nDescrizione: ${waitlistEntry.description || 'Nessuna'}\nNote Interne: ${waitlistEntry.notes || ''}`,
-                            images: waitlistEntry.images || [],
-                            service_name: waitlistEntry.description ? waitlistEntry.description.slice(0, 30) : 'Nuovo Appuntamento'
-                        } : undefined
-                    }
                     onSave={handleSaveAppointment}
                 />
             </div>
-            {/* Lightbox for Images */}
-            {
-                viewingImage && (
-                    <div
-                        className="fixed inset-0 bg-black bg-opacity-90 z-[100] flex items-center justify-center p-4 cursor-zoom-out backdrop-blur-sm"
-                        style={{ zIndex: 9999 }}
-                        onClick={() => setViewingImage(null)}
-                    >
-                        <img
-                            src={viewingImage}
-                            alt="Full size"
-                            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-                        />
-                        <button
-                            onClick={() => setViewingImage(null)}
-                            className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
-                        >
-                            <X size={24} />
-                        </button>
-                    </div>
-                )
-            }
-        </div >
+        </div>
     );
 };

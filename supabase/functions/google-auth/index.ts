@@ -18,38 +18,19 @@ serve(async (req) => {
 
     const { pathname, searchParams } = new URL(req.url);
 
-    // 1. GET /login OR POST / (RPC): Redirect users to Google's Consent Page
-    // invoke() hits the root path. We treat root POST as a request for Auth URL.
-    if (pathname.endsWith('/login') || (req.method === 'POST' && pathname.endsWith('/google-auth'))) {
-        let userId, appUrl;
-
-        // Support POST for JSON response (Authorized RPC)
-        if (req.method === 'POST') {
-            try {
-                const body = await req.json();
-                userId = body.user_id;
-                appUrl = body.redirect_to;
-            } catch {
-                return new Response(JSON.stringify({ error: "Invalid JSON body" }), { status: 400, headers: corsHeaders });
-            }
-        } else {
-            // Fallback for GET (Anonymous Redirections - likely blocked by 401 if Auth Verified)
-            userId = searchParams.get('user_id');
-            appUrl = searchParams.get('redirect_to');
-        }
-
+    // 1. GET /login: Redirect users to Google's Consent Page
+    if (pathname.endsWith('/login')) {
         const client_id = Deno.env.get('GOOGLE_CLIENT_ID');
         const redirect_uri = `${Deno.env.get('SUPABASE_URL')}/functions/v1/google-auth/callback`;
         const scope = 'https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly';
 
         // Pass user_id and redirect_url (app url) in state
-        const state = JSON.stringify({ userId, appUrl: appUrl || 'http://localhost:3000' });
+        // SECURITY NOTE: In production, sign this state or use a session cookie to prevent CSRF.
+        const userId = searchParams.get('user_id');
+        const appUrl = searchParams.get('redirect_to') || 'http://localhost:3000';
+        const state = JSON.stringify({ userId, appUrl });
 
         const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${client_id}&redirect_uri=${encodeURIComponent(redirect_uri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent&state=${encodeURIComponent(state)}`;
-
-        if (req.method === 'POST') {
-            return new Response(JSON.stringify({ url: googleAuthUrl }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        }
 
         return Response.redirect(googleAuthUrl, 302);
     }

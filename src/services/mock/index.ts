@@ -1112,22 +1112,6 @@ export class MockRepository implements IRepository {
             return MOCK_WAITLIST[idx];
         }
     };
-
-    googleSheets = {
-        listSpreadsheets: (): Promise<{ id: string; name: string }[]> => {
-            return Promise.resolve([
-                { id: 'mock-sheet-1', name: 'Mock Sheet 1' },
-                { id: 'mock-sheet-2', name: 'Mock Sheet 2' }
-            ]);
-        },
-        getSheetsMetadata: (_spreadsheetId: string): Promise<string[]> => {
-            return Promise.resolve(['Sheet1', 'Clients']);
-        },
-        syncClients: (studioId: string): Promise<void> => {
-            console.log('Mock sync to Google Sheets for studio', studioId);
-            return Promise.resolve();
-        }
-    };
 }
 
 
