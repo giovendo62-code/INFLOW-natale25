@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useCalendar } from './hooks/useCalendar';
 import { CalendarHeader } from './components/CalendarHeader';
 import { MonthView } from './components/MonthView';
 import { AppointmentDrawer } from './components/AppointmentDrawer';
 import { GoogleCalendarDrawer } from './components/GoogleCalendarDrawer';
 import { ReviewRequestModal } from '../../components/ReviewRequestModal';
-import type { Appointment, User } from '../../services/types';
+import type { Appointment, User, WaitlistEntry } from '../../services/types';
 import { api } from '../../services/api';
 import { useAuth } from '../auth/AuthContext';
 import { useLayoutStore } from '../../stores/layoutStore';
@@ -43,6 +44,28 @@ export const Calendar: React.FC = () => {
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
     const [artists, setArtists] = useState<User[]>([]);
+    const [initialDrawerData, setInitialDrawerData] = useState<Partial<Appointment> | undefined>(undefined);
+
+    const location = useLocation();
+
+    useEffect(() => {
+        if (location.state?.waitlistEntry) {
+            const entry = location.state.waitlistEntry as WaitlistEntry;
+            const data: Partial<Appointment> = {
+                client_id: entry.client_id,
+                notes: entry.description
+                    ? `[Da Lista d'Attesa]\nDescrizione: ${entry.description}\n${entry.notes ? `Note Interne: ${entry.notes}` : ''}`
+                    : entry.notes,
+                service_name: entry.styles.join(', '),
+                images: entry.images || []
+            };
+            setInitialDrawerData(data);
+            setSelectedDate(new Date());
+            setIsDrawerOpen(true);
+            // Clean state
+            window.history.replaceState({}, document.title);
+        }
+    }, [location]);
 
     useEffect(() => {
         const fetchArtists = async () => {
@@ -393,6 +416,7 @@ export const Calendar: React.FC = () => {
                 selectedAppointment={selectedAppointment}
                 onSave={handleSave}
                 onDelete={selectedAppointment ? handleDelete : undefined}
+                initialData={initialDrawerData}
             />
 
             <GoogleCalendarDrawer

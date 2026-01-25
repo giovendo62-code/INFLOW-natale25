@@ -658,7 +658,12 @@ export const ClientProfile: React.FC = () => {
                                         {waitlistEntry.images && waitlistEntry.images.length > 0 ? (
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
                                                 {waitlistEntry.images.map((url, i) => (
-                                                    <div key={i} className="aspect-square rounded-lg overflow-hidden border border-border bg-bg-tertiary" onClick={() => window.open(url, '_blank')}>
+                                                    <div key={i} className="aspect-square rounded-lg overflow-hidden border border-border bg-bg-tertiary" onClick={() => {
+                                                        const win = window.open();
+                                                        if (win) {
+                                                            win.document.write('<img src="' + url + '" style="max-width:100%;" />');
+                                                        }
+                                                    }}>
                                                         <img src={url} alt={`Riferimento ${i}`} className="w-full h-full object-cover hover:scale-105 transition-transform cursor-pointer" />
                                                     </div>
                                                 ))}
@@ -850,14 +855,23 @@ export const ClientProfile: React.FC = () => {
                     }
                 </div >
 
-                <AppointmentDrawer
-                    isOpen={isAppointmentDrawerOpen}
-                    onClose={() => setIsAppointmentDrawerOpen(false)}
-                    selectedDate={null}
-                    selectedAppointment={null}
-                    initialClientId={client.id}
-                    onSave={handleSaveAppointment}
-                />
+                {isAppointmentDrawerOpen && (
+                    <AppointmentDrawer
+                        isOpen={isAppointmentDrawerOpen}
+                        onClose={() => setIsAppointmentDrawerOpen(false)}
+                        selectedDate={new Date()}
+                        selectedAppointment={null}
+                        onSave={handleSaveAppointment}
+                        initialClientId={client.id}
+                        initialData={activeTab === 'request' && waitlistEntry ? {
+                            notes: waitlistEntry.description
+                                ? `[Da Richiesta Lista d'Attesa]\nDescrizione: ${waitlistEntry.description}\n${waitlistEntry.notes ? `Note Interne: ${waitlistEntry.notes}` : ''}`
+                                : waitlistEntry.notes,
+                            service_name: waitlistEntry.styles.join(', '),
+                            images: waitlistEntry.images || []
+                        } : undefined}
+                    />
+                )}
             </div>
         </div>
     );

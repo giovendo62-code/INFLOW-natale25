@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import type { WaitlistEntry } from '../../services/types';
-import { Search, Filter, QrCode, CheckCircle, Clock, UserPlus, ArrowUpRight, ChevronDown, ArrowDownWideNarrow, ArrowUpNarrowWide, PenTool, Check, Link, ChevronDownCircle, Edit3, Save, X, StickyNote } from 'lucide-react';
+import { Search, Filter, QrCode, CheckCircle, Clock, UserPlus, ArrowUpRight, ChevronDown, ArrowDownWideNarrow, ArrowUpNarrowWide, PenTool, Check, Link, ChevronDownCircle, Edit3, Save, X, StickyNote, Calendar as CalendarIcon } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../auth/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -172,11 +172,12 @@ export const WaitlistManager: React.FC = () => {
 
     // Helper for Status Actions
     const renderActions = (entry: WaitlistEntry, isMobile = false) => {
-        const getBtnClass = (color: 'blue' | 'green' | 'red') => {
-            const base = "px-3 py-1.5 rounded-lg text-xs font-medium border whitespace-nowrap";
+        const getBtnClass = (color: 'blue' | 'green' | 'red' | 'purple') => {
+            const base = "px-3 py-1.5 rounded-lg text-xs font-medium border whitespace-nowrap flex items-center justify-center gap-1";
             if (color === 'blue') return `${base} bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 border-blue-500/20`;
             if (color === 'green') return `${base} bg-green-500/10 hover:bg-green-500/20 text-green-500 border-green-500/20`;
             if (color === 'red') return `${base} bg-red-500/10 hover:bg-red-500/20 text-red-500 border-red-500/20`;
+            if (color === 'purple') return `${base} bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 border-purple-500/20`;
             return base;
         };
 
@@ -184,7 +185,19 @@ export const WaitlistManager: React.FC = () => {
             `px-3 py-1.5 bg-bg-tertiary hover:bg-white/10 text-text-muted hover:text-text-primary rounded-lg text-xs font-medium border border-border whitespace-nowrap`;
 
         return (
-            <div className={clsx("flex items-center gap-2", isMobile ? "grid grid-cols-2 w-full" : "justify-end")}>
+            <div className={clsx("flex items-center gap-2 flex-wrap", isMobile ? "grid grid-cols-2 w-full" : "justify-end")}>
+                {/* Booking Button - Visible for Pending/In Progress */}
+                {(entry.status === 'PENDING' || entry.status === 'IN_PROGRESS' || entry.status === 'CONTACTED') && (
+                    <button
+                        onClick={() => navigate('/calendar', { state: { waitlistEntry: entry } })}
+                        className={clsx(getBtnClass('purple'), isMobile && "col-span-2 mb-2")}
+                        title="Prenota su Calendario"
+                    >
+                        <CalendarIcon size={14} />
+                        Prenota
+                    </button>
+                )}
+
                 {entry.status === 'PENDING' && (
                     <>
                         <button onClick={() => handleStatusUpdate(entry.id, 'IN_PROGRESS')} className={getBtnClass('blue')}>In Lavorazione</button>
@@ -532,6 +545,27 @@ export const WaitlistManager: React.FC = () => {
                                             <div className="text-sm text-text-secondary truncate max-w-xs" title={entry.description}>
                                                 {entry.description || '-'}
                                             </div>
+                                            {/* Images Preview */}
+                                            {entry.images && entry.images.length > 0 && (
+                                                <div className="flex gap-2 mt-2">
+                                                    {entry.images.map((img, idx) => (
+                                                        <div
+                                                            key={idx}
+                                                            onClick={() => {
+                                                                // Open in new window/tab as creating a blob URL for base64
+                                                                const win = window.open();
+                                                                if (win) {
+                                                                    win.document.write('<img src="' + img + '" style="max-width:100%;" />');
+                                                                }
+                                                            }}
+                                                            className="w-10 h-10 rounded border border-border overflow-hidden cursor-pointer hover:border-accent transition-colors relative group/img"
+                                                        >
+                                                            <img src={img} alt="Ref" className="w-full h-full object-cover" />
+                                                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity" />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
 
                                             {/* Notes Field */}
                                             <div className="mt-2">
@@ -629,6 +663,26 @@ export const WaitlistManager: React.FC = () => {
 
                                 {entry.description && (
                                     <p className="text-sm text-text-secondary italic bg-bg-tertiary/50 p-2 rounded break-words">"{entry.description}"</p>
+                                )}
+
+                                {/* Images Preview (Mobile) */}
+                                {entry.images && entry.images.length > 0 && (
+                                    <div className="flex gap-2 overflow-x-auto py-2">
+                                        {entry.images.map((img, idx) => (
+                                            <div
+                                                key={idx}
+                                                onClick={() => {
+                                                    const win = window.open();
+                                                    if (win) {
+                                                        win.document.write('<img src="' + img + '" style="max-width:100%;" />');
+                                                    }
+                                                }}
+                                                className="w-16 h-16 shrink-0 rounded border border-border overflow-hidden cursor-pointer hover:border-accent transition-colors"
+                                            >
+                                                <img src={img} alt="Ref" className="w-full h-full object-cover" />
+                                            </div>
+                                        ))}
+                                    </div>
                                 )}
 
                                 {/* Notes Section for Mobile */}

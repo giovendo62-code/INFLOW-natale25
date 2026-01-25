@@ -17,7 +17,9 @@ interface AppointmentDrawerProps {
     onSave: (data: Partial<Appointment>) => Promise<void>;
     onDelete?: (id: string) => Promise<void>;
     initialClientId?: string;
+    initialData?: Partial<Appointment>;
 }
+
 
 export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
     isOpen,
@@ -26,7 +28,8 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
     selectedAppointment,
     onSave,
     onDelete,
-    initialClientId
+    initialClientId,
+    initialData
 }) => {
     const { user } = useAuth();
     const { isPrivacyMode } = useLayoutStore();
@@ -125,17 +128,17 @@ export const AppointmentDrawer: React.FC<AppointmentDrawerProps> = ({
             }
 
             setFormData({
-                service_name: '',
-                client_id: initialClientId || '',
-                artist_id: defaultArtist,
-                start_time: baseDate.toISOString(),
-                end_time: new Date(baseDate.getTime() + 60 * 60 * 1000).toISOString(), // +1 hour
-                status: 'PENDING',
-                notes: '',
-                images: []
+                service_name: initialData?.service_name || '',
+                client_id: initialData?.client_id || initialClientId || '',
+                artist_id: initialData?.artist_id || defaultArtist,
+                start_time: initialData?.start_time || baseDate.toISOString(),
+                end_time: initialData?.end_time || new Date(baseDate.getTime() + 60 * 60 * 1000).toISOString(), // +1 hour
+                status: (initialData?.status as any) || 'PENDING',
+                notes: initialData?.notes || '',
+                images: initialData?.images || []
             });
         }
-    }, [selectedAppointment, selectedDate, isOpen, user, artists, initialClientId]);
+    }, [selectedAppointment, selectedDate, isOpen, user, artists, initialClientId, initialData]);
 
     const handleUpload = async (file: File) => {
         try {

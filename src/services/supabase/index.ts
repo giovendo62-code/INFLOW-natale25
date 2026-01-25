@@ -1259,7 +1259,7 @@ export class SupabaseRepository implements IRepository {
         list: async (studioId: string): Promise<WaitlistEntry[]> => {
             const { data, error } = await supabase
                 .from('waitlist_entries')
-                .select('id, studio_id, client_id, email, phone, client_name, preferred_artist_id, styles, description, status, created_at, interest_type, notes')
+                .select('id, studio_id, client_id, email, phone, client_name, preferred_artist_id, styles, description, status, created_at, interest_type, notes, images')
                 .eq('studio_id', studioId)
                 .order('created_at', { ascending: false });
             if (error) throw error;

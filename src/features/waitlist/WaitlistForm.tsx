@@ -27,7 +27,8 @@ export const WaitlistForm: React.FC = () => {
         zip_code: '',
         styles: [] as string[],
         description: '',
-        images: [] as string[] // Base64 strings for simplicity
+        images: [] as string[], // Preview URLs (Blob)
+        files: [] as File[] // Actual files to upload
     });
 
     useEffect(() => {
@@ -104,20 +105,19 @@ export const WaitlistForm: React.FC = () => {
     };
 
     const handleImageUpload = (file: File) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setFormData(prev => ({
-                ...prev,
-                images: [...prev.images, reader.result as string]
-            }));
-        };
-        reader.readAsDataURL(file);
+        const previewUrl = URL.createObjectURL(file);
+        setFormData(prev => ({
+            ...prev,
+            images: [...prev.images, previewUrl],
+            files: [...(prev.files || []), file]
+        }));
     };
 
     const removeImage = (index: number) => {
         setFormData(prev => ({
             ...prev,
-            images: prev.images.filter((_, i) => i !== index)
+            images: prev.images.filter((_, i) => i !== index),
+            files: (prev.files || []).filter((_, i) => i !== index)
         }));
     };
 
@@ -169,32 +169,41 @@ export const WaitlistForm: React.FC = () => {
         }
 
         try {
+            // Upload images to Storage
+            const uploadedUrls: string[] = [];
+            if (formData.files && formData.files.length > 0) {
+                for (const file of formData.files) {
+                    try {
+                        const path = `${Date.now()}_${file.name}`;
+                        const url = await api.storage.upload('waitlist', path, file);
+                        uploadedUrls.push(url);
+                    } catch (uploadError) {
+                        console.error("Failed to upload image:", file.name, uploadError);
+                        // Continue with other images or throw? For now continue.
+                    }
+                }
+            }
+
+            // Combine with any existing string URLs (if we had editing features, but we don't here)
+            // For this form, all images are new uploads.
+
+            const payload = {
+                studio_id: studioId || 'studio-1',
+                client_id: clientIdToUse,
+                client_name: formData.full_name,
+                email: formData.email,
+                phone: formData.phone,
+                styles: formData.styles,
+                interest_type: formData.interest_type,
+                description: formData.description,
+                artist_pref_id: undefined,
+                images: uploadedUrls
+            };
+
             if (api.waitlist.addToWaitlistPublic) {
-                await api.waitlist.addToWaitlistPublic({
-                    studio_id: studioId || 'studio-1',
-                    client_id: clientIdToUse,
-                    client_name: formData.full_name,
-                    email: formData.email,
-                    phone: formData.phone,
-                    styles: formData.styles,
-                    interest_type: formData.interest_type,
-                    description: formData.description,
-                    artist_pref_id: undefined,
-                    images: formData.images
-                }, signatureData || undefined, template?.version);
+                await api.waitlist.addToWaitlistPublic(payload, signatureData || undefined, template?.version);
             } else {
-                await api.waitlist.addToWaitlist({
-                    studio_id: studioId || 'studio-1',
-                    client_id: clientIdToUse,
-                    client_name: formData.full_name,
-                    email: formData.email,
-                    phone: formData.phone,
-                    styles: formData.styles,
-                    interest_type: formData.interest_type,
-                    description: formData.description,
-                    artist_pref_id: undefined,
-                    images: formData.images
-                }, signatureData || undefined, template?.version);
+                await api.waitlist.addToWaitlist(payload, signatureData || undefined, template?.version);
             }
 
             setSubmitted(true);

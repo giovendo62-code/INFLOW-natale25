@@ -91,7 +91,6 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onStartSignature }) => {
                     <thead className="bg-bg-tertiary text-text-muted uppercase text-xs font-semibold">
                         <tr>
                             <th className="p-4">Cliente</th>
-                            <th className="p-4">Contatti</th>
                             <th className="p-4">Stato Consenso</th>
                             <th className="p-4 text-right">Azioni</th>
                         </tr>
@@ -108,11 +107,6 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onStartSignature }) => {
                                     <tr key={client.id} className="hover:bg-white/5 transition-colors">
                                         <td className="p-4">
                                             <div className="font-medium text-text-primary">{client.full_name}</div>
-                                            <div className="text-xs text-text-muted">CF: {client.fiscal_code || '-'}</div>
-                                        </td>
-                                        <td className="p-4 text-sm text-text-muted">
-                                            <div>{client.email}</div>
-                                            <div>{client.phone}</div>
                                         </td>
                                         <td className="p-4">
                                             {consent ? (
@@ -178,7 +172,6 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onStartSignature }) => {
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <div className="font-bold text-text-primary text-lg">{client.full_name}</div>
-                                        <div className="text-xs text-text-muted">CF: {client.fiscal_code || '-'}</div>
                                     </div>
                                     {consent ? (
                                         <CheckCircle size={20} className="text-green-400" />
@@ -187,16 +180,7 @@ export const ClientsTab: React.FC<ClientsTabProps> = ({ onStartSignature }) => {
                                     )}
                                 </div>
 
-                                <div className="text-sm text-text-muted space-y-1 bg-bg-tertiary/30 p-3 rounded-lg">
-                                    <div className="flex justify-between">
-                                        <span>Email:</span>
-                                        <span className="text-text-primary">{client.email || '-'}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Telefono:</span>
-                                        <span className="text-text-primary">{client.phone || '-'}</span>
-                                    </div>
-                                </div>
+
 
                                 <div className="pt-2 border-t border-border flex items-center justify-between">
                                     <div className="text-xs">
