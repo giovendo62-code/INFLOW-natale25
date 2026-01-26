@@ -72,7 +72,7 @@ export interface Client {
   consent_status?: 'SIGNED' | 'PENDING' | 'EXPIRED' | 'NONE';
 }
 
-export type AppointmentStatus = 'CONFIRMED' | 'PENDING' | 'COMPLETED' | 'NO_SHOW';
+export type AppointmentStatus = 'CONFIRMED' | 'PENDING' | 'COMPLETED' | 'NO_SHOW' | 'CANCELLED' | 'ABSENT';
 
 export interface Appointment {
   id: string;
@@ -324,6 +324,7 @@ export interface IRepository {
     addToWaitlistPublic(data: Omit<WaitlistEntry, 'id' | 'created_at' | 'status'>, signatureData?: string, templateVersion?: number): Promise<Pick<WaitlistEntry, 'id'>>;
     updateStatus(id: string, status: WaitlistEntry['status']): Promise<WaitlistEntry>;
     update(id: string, data: Partial<WaitlistEntry>): Promise<WaitlistEntry>;
+    delete(id: string): Promise<void>;
   };
   storage: {
     upload(bucket: string, path: string, file: File): Promise<string>; // Returns public URL

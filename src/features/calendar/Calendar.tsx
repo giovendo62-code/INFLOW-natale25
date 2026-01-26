@@ -7,6 +7,7 @@ import { AppointmentDrawer } from './components/AppointmentDrawer';
 import { GoogleCalendarDrawer } from './components/GoogleCalendarDrawer';
 import { ReviewRequestModal } from '../../components/ReviewRequestModal';
 import type { Appointment, User, WaitlistEntry } from '../../services/types';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../services/api';
 import { useAuth } from '../auth/AuthContext';
 import { useLayoutStore } from '../../stores/layoutStore';
@@ -48,6 +49,8 @@ export const Calendar: React.FC = () => {
 
     const location = useLocation();
 
+    const [sourceWaitlistId, setSourceWaitlistId] = useState<string | null>(null);
+
     useEffect(() => {
         if (location.state?.waitlistEntry) {
             const entry = location.state.waitlistEntry as WaitlistEntry;
@@ -60,6 +63,7 @@ export const Calendar: React.FC = () => {
                 images: entry.images || []
             };
             setInitialDrawerData(data);
+            setSourceWaitlistId(entry.id);
             setSelectedDate(new Date());
             setIsDrawerOpen(true);
             // Clean state
@@ -92,14 +96,76 @@ export const Calendar: React.FC = () => {
     const handleSave = async (data: Partial<Appointment>) => {
         try {
             if (selectedAppointment) {
-                // Update
+                // UPDATE EXISTING APPOINTMENT
                 if (!selectedAppointment.id) return;
                 await api.appointments.update(selectedAppointment.id, data);
 
-                // Check for completion to trigger Review Request
+                // Waitlist Sincronization Logic (Update)
+                const client_id = data.client_id || selectedAppointment.client_id;
+                if (client_id) {
+                    try {
+                        const entries = await api.waitlist.list(user?.studio_id || 'studio-1');
+                        console.log('[Waitlist Sync] Entries fetched:', entries.length);
+
+                        // 1. Try finding by Client ID
+                        let clientEntries = entries
+                            .filter(e => e.client_id === client_id);
+                        console.log('[Waitlist Sync] Found by ID:', clientEntries.length);
+
+                        // 2. Fallback: Try finding by Email if no ID match (for unlinked entries)
+                        if (clientEntries.length === 0) {
+                            const clientEmail = selectedAppointment.client?.email;
+                            console.log('[Waitlist Sync] No ID match. Checking email:', clientEmail);
+                            if (clientEmail) {
+                                clientEntries = entries.filter(e => e.email?.trim().toLowerCase() === clientEmail.trim().toLowerCase());
+                                console.log('[Waitlist Sync] Found by Email:', clientEntries.length);
+                            }
+                        }
+
+                        // Sort by most recent
+                        clientEntries.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+                        const activeEntry = clientEntries[0];
+
+                        if (activeEntry) {
+                            console.log('[Waitlist Sync] Active Entry:', activeEntry.id, activeEntry.status);
+
+                            // If we found it by email but it has no client_id, link it now!
+                            if (!activeEntry.client_id && client_id) {
+                                console.log('[Waitlist Sync] Linking client_id...');
+                                await api.waitlist.update(activeEntry.id, { client_id });
+                            }
+
+                            if ((data.status === 'CONFIRMED' || data.status === 'COMPLETED') && activeEntry.status !== 'BOOKED') {
+                                console.log('[Waitlist Sync] Updating to BOOKED');
+                                await api.waitlist.updateStatus(activeEntry.id, 'BOOKED');
+                            } else if ((data.status === 'ABSENT' || data.status === 'CANCELLED' || data.status === 'NO_SHOW')) {
+                                // If appointment is cancelled/absent/no-show, ALWAYS return the waitlist entry to PENDING (waiting list)
+                                // UNLESS it's already PENDING. This covers BOOKED -> PENDING transition.
+                                if (activeEntry.status !== 'PENDING') {
+                                    console.log('[Waitlist Sync] Appointment ABSENT/CANCELLED/NO_SHOW. Reverting waitlist to PENDING.');
+                                    await api.waitlist.updateStatus(activeEntry.id, 'PENDING');
+                                }
+                            } else if (data.status === 'PENDING' && activeEntry.status !== 'IN_PROGRESS' && activeEntry.status !== 'BOOKED') {
+                                // If appointment is PENDING (rescheduled maybe?), ensure waitlist is IN_PROGRESS (acting as placeholder)
+                                // But if it was BOOKED, maybe we should keep it BOOKED? Or demote to IN_PROGRESS?
+                                // Let's set to IN_PROGRESS so it's visible as "working on it"
+                                console.log('[Waitlist Sync] Updating to IN_PROGRESS');
+                                await api.waitlist.updateStatus(activeEntry.id, 'IN_PROGRESS');
+                            } else {
+                                console.log('[Waitlist Sync] No status update needed. Desired:', data.status, 'Current:', activeEntry.status);
+                            }
+                        } else {
+                            console.log('[Waitlist Sync] No entry found for client.');
+                        }
+                    } catch (ignore) {
+                        console.warn('Failed to sync waitlist status on update', ignore);
+                    }
+                }
+
                 // Check for completion to trigger Review Request
                 if (data.status === 'COMPLETED' && selectedAppointment.status !== 'COMPLETED') {
-                    // Fetch fresh data to ensure we have the updated client info (e.g. if client was just assigned)
+                    // Fetch fresh data...
                     try {
                         const freshApt = await api.appointments.get(selectedAppointment.id);
                         if (freshApt) {
@@ -107,18 +173,38 @@ export const Calendar: React.FC = () => {
                             const clientPhone = freshApt.client?.phone;
                             setReviewModalData({ isOpen: true, clientName, clientPhone, studioId: freshApt.studio_id || user?.studio_id });
                         }
-                    } catch (err) {
-                        console.error('Failed to fetch fresh appointment data for review modal', err);
-                        // Fallback to old data if fetch fails
+                    } catch (err) { /* Fallback */
                         const clientName = selectedAppointment.client?.full_name || 'Cliente';
                         const clientPhone = selectedAppointment.client?.phone;
                         setReviewModalData({ isOpen: true, clientName, clientPhone, studioId: selectedAppointment.studio_id || user?.studio_id });
                     }
                 }
             } else {
-                // Create
+                // CREATE NEW APPOINTMENT
                 await api.appointments.create(data as Appointment);
+
+                // Waitlist Sincronization Logic (Creation)
+                if (sourceWaitlistId) {
+                    const newStatus = data.status || 'PENDING';
+                    let targetWaitlistStatus: 'IN_PROGRESS' | 'BOOKED' = 'IN_PROGRESS';
+
+                    if (newStatus === 'CONFIRMED' || newStatus === 'COMPLETED') {
+                        targetWaitlistStatus = 'BOOKED';
+                    } else {
+                        targetWaitlistStatus = 'IN_PROGRESS';
+                    }
+
+                    // UPDATE STATUS AND LINK CLIENT ID
+                    const updatePayload: any = { status: targetWaitlistStatus };
+                    if (data.client_id) {
+                        updatePayload.client_id = data.client_id;
+                    }
+
+                    await api.waitlist.update(sourceWaitlistId, updatePayload);
+                    setSourceWaitlistId(null); // Reset
+                }
             }
+            await queryClient.invalidateQueries({ queryKey: ['waitlist'] });
             await refresh(); // Refresh calendar data
             setIsDrawerOpen(false);
             setSelectedAppointment(null);
@@ -129,17 +215,44 @@ export const Calendar: React.FC = () => {
         }
     };
 
+    const queryClient = useQueryClient();
+
+    const deleteMutation = useMutation({
+        mutationFn: (id: string) => api.appointments.delete(id),
+        onMutate: async (deletedId) => {
+            // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+            await queryClient.cancelQueries({ queryKey: ['appointments'] });
+
+            // Snapshot the previous value
+            const previousAppointments = queryClient.getQueryData(['appointments']);
+
+            // Optimistically update to the new value
+            queryClient.setQueryData(['appointments', user?.studio_id], (old: Appointment[] | undefined) => {
+                return old ? old.filter(appt => appt.id !== deletedId) : [];
+            });
+
+            // Return a context object with the snapshotted value
+            return { previousAppointments };
+        },
+        onError: (_err, _userId, context) => {
+            if (context?.previousAppointments) {
+                queryClient.setQueryData(['appointments', user?.studio_id], context.previousAppointments);
+            }
+            alert('Errore durante l\'eliminazione. Riprova.');
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ['appointments'] });
+        },
+    });
+
     const handleDelete = async (id: string) => {
-        try {
-            await api.appointments.delete(id);
-            await refresh();
-            setIsDrawerOpen(false);
-            setSelectedAppointment(null);
-            setSelectedDate(null);
-        } catch (error) {
-            console.error('Failed to delete appointment:', error);
-            alert('Errore durante l\'eliminazione dell\'appuntamento');
-        }
+        if (!window.confirm('Sei sicuro di voler eliminare questo appuntamento?')) return;
+
+        setIsDrawerOpen(false); // Close immediately
+        setSelectedAppointment(null);
+        setSelectedDate(null);
+
+        deleteMutation.mutate(id);
     };
 
     const toggleFullscreen = () => {

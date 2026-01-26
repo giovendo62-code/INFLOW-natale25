@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Building, FileText, Palette, Moon, Sun, Link } from 'lucide-react';
+import { User, Building, FileText, Palette, Moon, Sun, Link, Save } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../auth/AuthContext';
 import { useLayoutStore } from '../../stores/layoutStore';
@@ -194,6 +194,16 @@ export const SettingsPage: React.FC = () => {
                                     </p>
                                 </div>
                             </div>
+                        </div>
+
+                        <div className="flex justify-end pt-4">
+                            <button
+                                onClick={() => alert('Preferenze salvate con successo!')} // Persistence is automatic, just visual feedback
+                                className="px-6 py-2 bg-accent hover:bg-accent-hover text-white rounded-lg font-medium transition-colors shadow-lg shadow-accent/20 flex items-center gap-2"
+                            >
+                                <Save size={18} />
+                                Salva Preferenze
+                            </button>
                         </div>
                     </div>
                 )}

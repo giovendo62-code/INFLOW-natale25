@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Users, Calendar, TrendingUp,
@@ -22,6 +22,7 @@ import { it } from 'date-fns/locale';
 import { useLayoutStore } from '../../stores/layoutStore';
 import clsx from 'clsx';
 import { AppointmentDrawer } from '../calendar/components/AppointmentDrawer'; // Import Drawer
+import { useQuery } from '@tanstack/react-query';
 
 
 interface DashboardStats {
@@ -37,25 +38,6 @@ export const Dashboard: React.FC = () => {
     const navigate = useNavigate();
     const { isPrivacyMode, togglePrivacyMode } = useLayoutStore();
 
-    // -- State Definitions --
-    const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState<DashboardStats>({
-        revenue_today: 0,
-        revenue_month: 0,
-        waitlist_count: 0,
-        staff_present: 0,
-        staff_total: 0
-    });
-
-    // Artist/Owner State
-    const [appointments, setAppointments] = useState<Appointment[]>([]);
-    const [contract, setContract] = useState<ArtistContract | null>(null);
-    const [studio, setStudio] = useState<Studio | null>(null);
-
-    // Student State
-    const [studentCourse, setStudentCourse] = useState<Course | null>(null);
-    const [studentEnrollment, setStudentEnrollment] = useState<CourseEnrollment | null>(null);
-
     // UI State
     const [isShareOpen, setIsShareOpen] = useState(false);
     const [isTermsViewOpen, setIsTermsViewOpen] = useState(false);
@@ -65,6 +47,102 @@ export const Dashboard: React.FC = () => {
     // Appointment Drawer State
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+    // -- React Query Hooks --
+    const { data: studentData, isLoading: loadingStudent } = useQuery({
+        queryKey: ['student-data', user?.id],
+        queryFn: async () => {
+            if (!user || (user.role !== 'STUDENT' && user.role !== 'student')) return null;
+            const courses = await api.academy.listCourses();
+            const enrolledCourse = courses.find(c => c.student_ids.includes(user.id));
+            let enrollment = null;
+            if (enrolledCourse) {
+                enrollment = await api.academy.getEnrollment(enrolledCourse.id, user.id);
+            }
+            return { course: enrolledCourse, enrollment };
+        },
+        enabled: !!user && (user.role === 'STUDENT' || user.role === 'student'),
+        staleTime: 1000 * 60 * 5 // 5 min
+    });
+
+    const studentCourse = studentData?.course || null;
+    const studentEnrollment = studentData?.enrollment || null;
+
+    const { data: studio, isLoading: loadingStudio } = useQuery({
+        queryKey: ['studio', user.studio_id],
+        queryFn: () => (user.studio_id ? api.settings.getStudio(user.studio_id) : Promise.resolve(null)),
+        enabled: !!user.studio_id,
+        staleTime: 1000 * 60 * 30 // 30 min (rarely changes)
+    });
+
+    // Auto-set terms if student
+    useEffect(() => {
+        if (studio && (user.role === 'STUDENT' || user.role === 'student') && studio.academy_terms) {
+            setViewTermsContent(studio.academy_terms);
+        }
+    }, [studio, user.role]);
+
+    const { data: contract, isLoading: loadingContract } = useQuery({
+        queryKey: ['contract', user.id],
+        queryFn: () => api.artists.getContract(user.id),
+        enabled: !!user && (user.role === 'ARTIST' || user.role === 'artist'),
+        staleTime: 1000 * 60 * 10
+    });
+
+    const today = startOfDay(new Date());
+    const endNextWeek = endOfWeek(addWeeks(today, 1), { weekStartsOn: 1 });
+    const isArtist = user.role === 'ARTIST' || user.role === 'artist';
+    const artistIdFilter = (isArtist && !viewAllAppointments) ? user.id : undefined;
+
+    const { data: appointments = [], isLoading: loadingAppts, refetch: refetchAppts } = useQuery({
+        queryKey: ['appointments', user.studio_id, today.toISOString(), artistIdFilter],
+        queryFn: async () => {
+            const list = await api.appointments.list(today, endNextWeek, artistIdFilter, user.studio_id);
+            // Enrich with client data if missing (though Repo usually joins it)
+            // Ideally Repo should do this. For now we keep the parallel fetch if needed, 
+            // but check if client is already there to avoid N+1.
+            const enhanced = await Promise.all(list.map(async (appt) => {
+                if (appt.client) return appt;
+                // Only fetch if strictly necessary (Repo v2 should fetch it)
+                const client = await api.clients.getById(appt.client_id);
+                return { ...appt, client: client || undefined };
+            }));
+            return enhanced.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+        },
+        enabled: !!user.studio_id
+    });
+
+    const { data: stats = { revenue_today: 0, revenue_month: 0, waitlist_count: 0, staff_present: 0, staff_total: 0 }, isLoading: loadingStats, refetch: refetchStats } = useQuery({
+        queryKey: ['dashboard-stats', user.studio_id],
+        queryFn: async () => {
+            const fStats = await api.financials.getStats(new Date(), user.studio_id);
+
+            let wCount = 0;
+            if (user.studio_id) {
+                const wList = await api.waitlist.list(user.studio_id);
+                wCount = wList.filter(w => w.status === 'PENDING').length;
+            }
+
+            let sPresent = 0;
+            let sTotal = 0;
+            if (user.studio_id) {
+                const team = await api.settings.listTeamMembers(user.studio_id);
+                sTotal = team.length;
+                sPresent = team.length; // Mock
+            }
+
+            return {
+                revenue_today: fStats.revenue_today,
+                revenue_month: fStats.revenue_month,
+                waitlist_count: wCount,
+                staff_present: sPresent,
+                staff_total: sTotal
+            };
+        },
+        enabled: !!user.studio_id && (user.role === 'owner' || user.role === 'studio_admin' || user.role === 'manager')
+    });
+
+    const loading = loadingStudent || loadingStudio || loadingContract || loadingAppts || loadingStats;
 
     const handleApptClick = (appt: Appointment) => {
         setSelectedAppointment(appt);
@@ -78,8 +156,36 @@ export const Dashboard: React.FC = () => {
             } else {
                 await api.appointments.create(data as Omit<Appointment, 'id' | 'created_at' | 'updated_at'>);
             }
+
+            // Auto-add to Waitlist if status is PENDING
+            if (data.status === 'PENDING' && user.studio_id) {
+                // If we have client data (either from selectedAppointment or data)
+                const clientId = data.client_id || selectedAppointment?.client_id;
+
+                if (clientId) {
+                    // Fetch client details if needed, but for now we might rely on what we have.
+                    // The waitlist.addToWaitlist needs: client_id, email, client_name, etc.
+                    // Since 'data' is partial, we might not have everything.
+                    // Safest is to fetch client.
+                    const client = await api.clients.getById(clientId);
+                    if (client) {
+                        await api.waitlist.addToWaitlist({
+                            studio_id: user.studio_id,
+                            client_id: client.id,
+                            email: client.email,
+                            phone: client.phone,
+                            client_name: client.full_name,
+                            styles: client.preferred_styles || [],
+                            description: data.notes || 'Richiesta automatica da modifica appuntamento',
+                            notes: 'Generato automaticamente da Dashboard'
+                        });
+                    }
+                }
+            }
+
             setIsDrawerOpen(false);
-            loadDashboardData(); // Refresh list
+            refetchAppts(); // Refresh list
+            refetchStats(); // Refresh stats (revenue, etc)
         } catch (error) {
             console.error('Error saving appointment:', error);
             alert('Errore durante il salvataggio.');
@@ -91,116 +197,28 @@ export const Dashboard: React.FC = () => {
         try {
             await api.appointments.delete(id);
             setIsDrawerOpen(false);
-            loadDashboardData(); // Refresh list
+            refetchAppts(); // Refresh list via Query
         } catch (error) {
             console.error('Error deleting appointment:', error);
             alert('Errore durante l\'eliminazione.');
         }
     };
 
-    if (!user) return <div className="p-8 text-center text-white">Caricamento utente...</div>;
-
-    // -- Data Loading Logic --
-    const loadDashboardData = useCallback(async () => {
-        try {
-            // 1. Student Data
-            if (user.role === 'STUDENT' || user.role === 'student') {
-                const courses = await api.academy.listCourses();
-                const enrolledCourse = courses.find(c => c.student_ids.includes(user.id));
-
-                if (enrolledCourse) {
-                    setStudentCourse(enrolledCourse);
-                    const enroll = await api.academy.getEnrollment(enrolledCourse.id, user.id);
-                    setStudentEnrollment(enroll);
-                }
-            }
-
-            // 2. Studio Data & Terms
-            if (user.studio_id) {
-                const s = await api.settings.getStudio(user.studio_id);
-                setStudio(s);
-                if (s && (user.role === 'STUDENT' || user.role === 'student') && s.academy_terms) {
-                    setViewTermsContent(s.academy_terms);
-                }
-            }
-
-            // 3. Appointments & Contract
-            const today = startOfDay(new Date());
-            const endNextWeek = endOfWeek(addWeeks(today, 1), { weekStartsOn: 1 });
-
-            const isArtist = user.role === 'ARTIST' || user.role === 'artist';
-            if (isArtist) {
-                const c = await api.artists.getContract(user.id);
-                setContract(c);
-            }
-
-            const artistIdFilter = (isArtist && !viewAllAppointments) ? user.id : undefined;
-            const appts = await api.appointments.list(today, endNextWeek, artistIdFilter, user.studio_id);
-
-            const enhancedAppts = await Promise.all(appts.map(async (appt) => {
-                if (appt.client) return appt;
-                const client = await api.clients.getById(appt.client_id);
-                return { ...appt, client: client || undefined };
-            }));
-
-            enhancedAppts.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
-            setAppointments(enhancedAppts);
-
-            // 4. Stats (Owner/Manager)
-            const userRole = user.role?.toLowerCase();
-            if (userRole === 'owner' || userRole === 'studio_admin' || userRole === 'manager') {
-                const fStats = await api.financials.getStats(new Date(), user.studio_id);
-
-                let wCount = 0;
-                if (user.studio_id) {
-                    const wList = await api.waitlist.list(user.studio_id);
-                    wCount = wList.filter(w => w.status === 'PENDING').length;
-                }
-
-                let sPresent = 0;
-                let sTotal = 0;
-                if (user.studio_id) {
-                    const team = await api.settings.listTeamMembers(user.studio_id);
-                    sTotal = team.length;
-                    sPresent = team.length; // Mock
-                }
-
-                setStats({
-                    revenue_today: fStats.revenue_today,
-                    revenue_month: fStats.revenue_month,
-                    waitlist_count: wCount,
-                    staff_present: sPresent,
-                    staff_total: sTotal
-                });
-            }
-
-        } catch (error) {
-            console.error('Error loading dashboard data:', error);
-        } finally {
-            setLoading(false);
-        }
-    }, [user.id, user.role, user.studio_id, viewAllAppointments]);
-
-    // -- Effects --
-    useEffect(() => {
-        loadDashboardData();
-    }, [loadDashboardData]);
-
     // -- Realtime Hooks --
     useRealtime('appointments', () => {
         console.log('Realtime: refreshing appointments');
-        loadDashboardData();
+        refetchAppts();
     });
 
     useRealtime('waitlist_entries', () => {
         if (user.role?.toLowerCase() === 'owner' || user.role?.toLowerCase() === 'manager') {
-            loadDashboardData();
+            refetchStats();
         }
     });
 
     useRealtime('transactions', () => {
         if (user.role?.toLowerCase() === 'owner' || user.role?.toLowerCase() === 'manager') {
-            loadDashboardData();
+            refetchStats();
         }
     });
 
@@ -522,6 +540,22 @@ export const Dashboard: React.FC = () => {
                                                                         )}
                                                                     </div>
                                                                 )}
+                                                                {appt.status && (
+                                                                    <div className={clsx(
+                                                                        "px-2 py-0.5 rounded text-[10px] uppercase font-bold border ml-2 self-start",
+                                                                        appt.status === 'CONFIRMED' ? "bg-green-500/10 text-green-500 border-green-500/20" :
+                                                                            appt.status === 'COMPLETED' ? "bg-blue-500/10 text-blue-500 border-blue-500/20" :
+                                                                                appt.status === 'CANCELLED' ? "bg-red-500/10 text-red-500 border-red-500/20" :
+                                                                                    appt.status === 'ABSENT' ? "bg-orange-500/10 text-orange-500 border-orange-500/20" :
+                                                                                        "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" // Pending/Default
+                                                                    )}>
+                                                                        {appt.status === 'CONFIRMED' ? 'Confermato' :
+                                                                            appt.status === 'COMPLETED' ? 'Completato' :
+                                                                                appt.status === 'CANCELLED' ? 'Cancellato' :
+                                                                                    appt.status === 'ABSENT' ? 'Assente' :
+                                                                                        'In Attesa'}
+                                                                    </div>
+                                                                )}
                                                             </div>
 
                                                             <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
@@ -580,6 +614,22 @@ export const Dashboard: React.FC = () => {
                                                                                 +{appt.images.length - 1}
                                                                             </span>
                                                                         )}
+                                                                    </div>
+                                                                )}
+                                                                {appt.status && (
+                                                                    <div className={clsx(
+                                                                        "px-2 py-0.5 rounded text-[10px] uppercase font-bold border ml-2 self-start",
+                                                                        appt.status === 'CONFIRMED' ? "bg-green-500/10 text-green-500 border-green-500/20" :
+                                                                            appt.status === 'COMPLETED' ? "bg-blue-500/10 text-blue-500 border-blue-500/20" :
+                                                                                appt.status === 'CANCELLED' ? "bg-red-500/10 text-red-500 border-red-500/20" :
+                                                                                    appt.status === 'ABSENT' ? "bg-orange-500/10 text-orange-500 border-orange-500/20" :
+                                                                                        "bg-yellow-500/10 text-yellow-500 border-yellow-500/20" // Pending/Default
+                                                                    )}>
+                                                                        {appt.status === 'CONFIRMED' ? 'Confermato' :
+                                                                            appt.status === 'COMPLETED' ? 'Completato' :
+                                                                                appt.status === 'CANCELLED' ? 'Cancellato' :
+                                                                                    appt.status === 'ABSENT' ? 'Assente' :
+                                                                                        'In Attesa'}
                                                                     </div>
                                                                 )}
                                                             </div>

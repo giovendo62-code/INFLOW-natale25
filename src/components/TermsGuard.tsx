@@ -21,27 +21,40 @@ export const TermsGuard: React.FC<{ children: React.ReactNode }> = ({ children }
             }
 
             try {
-                const studio = await api.settings.getStudio(user.studio_id);
-                // If no terms set, nothing to accept.
-                if (!studio || !studio.academy_terms) {
-                    setMustAccept(false);
-                    setLoading(false);
-                    return;
-                }
+                // Timeout failsafe - if API is sluggish, allow access rather than block
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Terms check timed out')), 5000)
+                );
 
-                // If studio version > user accepted version, show blocking modal
-                const studioVersion = studio.academy_terms_version || 0;
-                const userVersion = user.academy_terms_accepted_version || 0;
+                const termsCheckPromise = (async () => {
+                    const studio = await api.settings.getStudio(user.studio_id!);
+                    // If no terms set, nothing to accept.
+                    if (!studio || !studio.academy_terms) {
+                        return false;
+                    }
 
-                if (studioVersion > userVersion) {
-                    setTermsContent(studio.academy_terms);
-                    setTermsVersion(studioVersion);
+                    // If studio version > user accepted version, show blocking modal
+                    const studioVersion = studio.academy_terms_version || 0;
+                    const userVersion = user.academy_terms_accepted_version || 0;
+
+                    if (studioVersion > userVersion) {
+                        setTermsContent(studio.academy_terms);
+                        setTermsVersion(studioVersion);
+                        return true;
+                    }
+                    return false;
+                })();
+
+                const shouldShow = await Promise.race([termsCheckPromise, timeoutPromise]);
+
+                if (shouldShow === true) {
                     setMustAccept(true);
                 } else {
                     setMustAccept(false);
                 }
+
             } catch (error) {
-                console.error("Failed to check terms", error);
+                console.error("Failed to check terms (network or timeout)", error);
                 // Fail safe: allow access if check fails, to prevent locking out on network errors
                 setMustAccept(false);
             } finally {

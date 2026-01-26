@@ -16,7 +16,7 @@ window.onunhandledrejection = (event) => {
   console.error('[MOBILE-BLACKSCREEN] Unhandled rejection:', event.reason);
 };
 
-console.log('App starting...');
+console.log('App starting... [VERSION: TIMEOUT-FIXED]');
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 

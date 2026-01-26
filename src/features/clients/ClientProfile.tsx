@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, Mail, Phone, Calendar, Image, FileText, Activity, X, Save, Tag, MapPin, CreditCard, ClipboardList } from 'lucide-react';
+import { ArrowLeft, Mail, Phone, Calendar, Image, FileText, X, Save, Tag, MapPin, CreditCard, ClipboardList } from 'lucide-react';
 import { api } from '../../services/api';
 import { supabase } from '../../lib/supabase';
 import type { Client, WaitlistEntry, ClientConsent } from '../../services/types';
@@ -609,7 +609,7 @@ export const ClientProfile: React.FC = () => {
                             { id: 'gallery', label: 'Galleria', icon: Image, visible: true },
                             { id: 'history', label: 'Storico', icon: Calendar, visible: true },
                             { id: 'consents', label: 'Consensi', icon: FileText, visible: true },
-                            { id: 'medical', label: 'Info Mediche', icon: Activity, visible: true },
+                            { id: 'notes', label: 'Note', icon: FileText, visible: true },
                         ].filter(t => t.visible).map(tab => (
                             <button
                                 key={tab.id}
@@ -846,10 +846,37 @@ export const ClientProfile: React.FC = () => {
                         )
                     }
                     {
-                        activeTab === 'medical' && (
-                            <div className="bg-bg-secondary rounded-lg border border-border p-8 text-center text-text-muted">
-                                <Activity size={48} className="mx-auto mb-4 opacity-20" />
-                                <p>Nessuna nota medica registrata.</p>
+                        activeTab === 'notes' && (
+                            <div className="space-y-4">
+                                <div className="bg-bg-secondary rounded-lg border border-border p-6">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h3 className="text-lg font-bold text-white">Note Cliente</h3>
+                                        <button
+                                            onClick={async () => {
+                                                if (!client) return;
+                                                try {
+                                                    await api.clients.update(client.id, { notes: client.notes });
+                                                    alert('Note salvate con successo!');
+                                                } catch (err) {
+                                                    console.error('Error saving notes:', err);
+                                                    alert('Errore nel salvataggio delle note');
+                                                }
+                                            }}
+                                            className="px-4 py-2 bg-accent hover:bg-accent-hover text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+                                        >
+                                            <Save size={16} /> Salva Note
+                                        </button>
+                                    </div>
+                                    <textarea
+                                        value={client?.notes || ''}
+                                        onChange={(e) => setClient(prev => prev ? { ...prev, notes: e.target.value } : null)}
+                                        placeholder="Inserisci qui le note sul cliente..."
+                                        className="w-full h-64 bg-bg-tertiary border border-border rounded-lg p-4 text-white focus:border-accent outline-none resize-none"
+                                    />
+                                    <p className="text-sm text-text-muted mt-2">
+                                        Queste note sono visibili solo agli amministratori e allo staff.
+                                    </p>
+                                </div>
                             </div>
                         )
                     }

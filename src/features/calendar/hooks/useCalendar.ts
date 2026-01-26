@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
     startOfMonth,
     endOfMonth,
@@ -17,6 +17,7 @@ import {
     addYears,
     subYears,
 } from 'date-fns';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../services/api';
 import type { Appointment } from '../../../services/types';
 import { useAuth } from '../../auth/AuthContext';
@@ -28,10 +29,9 @@ export const useCalendar = () => {
     const { user } = useAuth();
     const [currentDate, setCurrentDate] = useState(new Date());
     const [view, setView] = useState<CalendarView>('month');
-    const [appointments, setAppointments] = useState<Appointment[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
     const [selectedArtistId, setSelectedArtistId] = useState<string | null>('all');
     const defaultSetRef = useRef(false);
+    const queryClient = useQueryClient();
 
     useEffect(() => {
         if (user && !defaultSetRef.current) {
@@ -43,20 +43,9 @@ export const useCalendar = () => {
         }
     }, [user]);
 
-    useEffect(() => {
-        fetchAppointments();
-    }, [currentDate, view, selectedArtistId]);
-
-    // Realtime Subscription
-    useRealtime('appointments', () => {
-        console.log('[useCalendar] Realtime update detected. Refreshing appointments...');
-        fetchAppointments();
-    });
-
-    const fetchAppointments = async () => {
-        setIsLoading(true);
+    // Calculate Date Range
+    const { start, end } = useMemo(() => {
         let start: Date, end: Date;
-
         if (view === 'year') {
             start = startOfYear(currentDate);
             end = endOfYear(currentDate);
@@ -70,27 +59,27 @@ export const useCalendar = () => {
             start = startOfDay(currentDate);
             end = endOfDay(currentDate);
         }
+        return { start, end };
+    }, [currentDate, view]);
 
-        try {
-            // Logic: 
-            // - If user is ARTIST => can only see own (override filter) OR see all if allowed? 
-            //   Usually artists only see theirs. Let's assume strict RBAC for now.
-            // - If user is ADMIN/MANAGER => can see all or filter by specific artist.
+    const artistFilter = useMemo(() => {
+        if (user?.role === 'ARTIST') return user.id;
+        return selectedArtistId === 'all' ? undefined : selectedArtistId;
+    }, [user, selectedArtistId]);
 
-            let artistFilter = selectedArtistId === 'all' ? undefined : selectedArtistId;
+    const { data: appointments = [], isLoading, refetch } = useQuery<Appointment[]>({
+        queryKey: ['appointments', user?.studio_id, start.toISOString(), end.toISOString(), artistFilter],
+        queryFn: () => api.appointments.list(start, end, artistFilter || undefined, user?.studio_id),
+        enabled: !!user?.studio_id,
+        staleTime: 1000 * 60 * 5, // 5 minutes
+        placeholderData: (previousData) => previousData // Keep previous data while fetching new range
+    });
 
-            if (user?.role === 'ARTIST') {
-                artistFilter = user.id;
-            }
-
-            const data = await api.appointments.list(start, end, artistFilter || undefined, user?.studio_id);
-            setAppointments(data);
-        } catch (err) {
-            console.error(err);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    // Realtime Subscription
+    useRealtime('appointments', () => {
+        console.log('[useCalendar] Realtime update detected. Invalidating query...');
+        queryClient.invalidateQueries({ queryKey: ['appointments'] });
+    });
 
     const next = () => {
         if (view === 'year') setCurrentDate(addYears(currentDate, 1));
@@ -120,7 +109,7 @@ export const useCalendar = () => {
         prev,
         today,
         goToDate,
-        refresh: fetchAppointments,
+        refresh: refetch,
         selectedArtistId,
         setSelectedArtistId
     };

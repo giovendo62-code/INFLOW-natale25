@@ -9,6 +9,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRealtime } from '../../hooks/useRealtime';
 import { ManualWaitlistModal } from './components/ManualWaitlistModal';
 
+import { WaitlistOptimizer } from './components/WaitlistOptimizer';
+
 export const WaitlistManager: React.FC = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
@@ -79,6 +81,31 @@ export const WaitlistManager: React.FC = () => {
                 queryClient.invalidateQueries({ queryKey: ['waitlist', user?.studio_id] });
                 return old;
             });
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        if (!window.confirm('Sei sicuro di voler eliminare questa richiesta? L\'azione è irreversibile.')) return;
+
+        // Optimistic Delete
+        queryClient.setQueryData(['waitlist', user?.studio_id], (old: WaitlistEntry[] | undefined) => {
+            return old ? old.filter(e => e.id !== id) : [];
+        });
+
+        try {
+            console.log('[WaitlistManager] Attempting to delete entry:', id);
+            await api.waitlist.delete(id);
+            console.log('[WaitlistManager] Delete successful:', id);
+        } catch (err: any) {
+            console.error('[WaitlistManager] Delete Failed. Details:', err);
+            // Log full error object for inspection
+            if (err?.message) console.error('Error Message:', err.message);
+            if (err?.code) console.error('Error Code:', err.code);
+            if (err?.details) console.error('Error Details:', err.details);
+            if (err?.hint) console.error('Error Hint:', err.hint);
+
+            alert(`Errore eliminazione: ${err?.message || 'Errore sconosciuto'}`);
+            queryClient.invalidateQueries({ queryKey: ['waitlist', user?.studio_id] });
         }
     };
 
@@ -216,6 +243,10 @@ export const WaitlistManager: React.FC = () => {
                     <>
                         <button onClick={() => handleStatusUpdate(entry.id, 'IN_PROGRESS')} className={getBtnClass('blue')}>Riapri (Lavorazione)</button>
                         <button onClick={() => handleStatusUpdate(entry.id, 'PENDING')} className={btnDefault}>Riapri (Attesa)</button>
+                        <button onClick={() => handleDelete(entry.id)} className="px-3 py-1.5 rounded-lg text-xs font-medium border border-red-500/20 bg-red-500/5 text-red-500 hover:bg-red-500/10 flex items-center justify-center gap-1 group/del" title="Elimina definitivamente">
+                            <span className="hidden sm:inline">Elimina</span>
+                            <X size={14} className="group-hover/del:scale-110 transition-transform" />
+                        </button>
                     </>
                 )}
             </div>
@@ -223,9 +254,9 @@ export const WaitlistManager: React.FC = () => {
     };
 
     return (
-        <div className="w-full overflow-x-hidden pt-20 md:pt-8 p-4 md:p-8 relative">
-
-            <div className="max-w-7xl mx-auto space-y-6 w-full min-w-0">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8">
+            <div className="max-w-7xl mx-auto space-y-6">
+                <WaitlistOptimizer />
 
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>

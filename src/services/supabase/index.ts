@@ -407,6 +407,40 @@ export class SupabaseRepository implements IRepository {
                 }
             }
 
+            // CASE C: Status changed to ABSENT (Assente) - Re-open Waitlist
+            if (updated.status === 'ABSENT' && updated.client_id) {
+                console.log('[DEBUG] Appointment marked ABSENT. Checking for Waitlist recovery...');
+                try {
+                    // Find most recent BOOKED/COMPLETED waitlist entry for this client
+                    // We assume that the appointment was created from a waitlist entry.
+                    // Even if not directly linked, it's safe to re-open the last "Booked" entry for this client.
+                    const { data: wlEntries } = await supabase
+                        .from('waitlist_entries')
+                        .select('*')
+                        .eq('client_id', updated.client_id)
+                        .in('status', ['BOOKED', 'COMPLETED']) // Check both just in case
+                        .order('created_at', { ascending: false })
+                        .limit(1);
+
+                    if (wlEntries && wlEntries.length > 0) {
+                        const entryToReopen = wlEntries[0];
+                        console.log('[DEBUG] Re-opening waitlist entry:', entryToReopen.id);
+
+                        await supabase
+                            .from('waitlist_entries')
+                            .update({
+                                status: 'PENDING',
+                                notes: (entryToReopen.notes || '') + ' [Riaperto per Assenza appuntamento]'
+                            })
+                            .eq('id', entryToReopen.id);
+                    } else {
+                        console.log('[DEBUG] No suitable waitlist entry found to re-open.');
+                    }
+                } catch (wlError) {
+                    console.error('[DEBUG] Failed to re-open waitlist entry:', wlError);
+                }
+            }
+
             // Trigger Google Sync (Outbound)
             // Use Studio Owner ID
             const ownerId = await getStudioOwnerId(updated.studio_id);
@@ -1313,6 +1347,13 @@ export class SupabaseRepository implements IRepository {
                 .single();
             if (error) throw error;
             return updated;
+        },
+        delete: async (id: string): Promise<void> => {
+            const { error } = await supabase
+                .from('waitlist_entries')
+                .delete()
+                .eq('id', id);
+            if (error) throw error;
         }
     };
 
