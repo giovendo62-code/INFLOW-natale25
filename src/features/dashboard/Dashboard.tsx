@@ -12,7 +12,6 @@ import { api } from '../../services/api';
 import { useRealtime } from '../../hooks/useRealtime';
 import type {
     Appointment,
-    ArtistContract,
     Studio,
     Course,
     CourseEnrollment
@@ -25,13 +24,7 @@ import { AppointmentDrawer } from '../calendar/components/AppointmentDrawer'; //
 import { useQuery } from '@tanstack/react-query';
 
 
-interface DashboardStats {
-    revenue_today: number;
-    revenue_month: number;
-    waitlist_count: number;
-    staff_present: number;
-    staff_total: number;
-}
+
 
 export const Dashboard: React.FC = () => {
     const { user } = useAuth();
@@ -69,34 +62,35 @@ export const Dashboard: React.FC = () => {
     const studentEnrollment = studentData?.enrollment || null;
 
     const { data: studio, isLoading: loadingStudio } = useQuery({
-        queryKey: ['studio', user.studio_id],
-        queryFn: () => (user.studio_id ? api.settings.getStudio(user.studio_id) : Promise.resolve(null)),
-        enabled: !!user.studio_id,
+        queryKey: ['studio', user?.studio_id],
+        queryFn: () => (user?.studio_id ? api.settings.getStudio(user.studio_id) : Promise.resolve(null)),
+        enabled: !!user?.studio_id,
         staleTime: 1000 * 60 * 30 // 30 min (rarely changes)
     });
 
     // Auto-set terms if student
     useEffect(() => {
-        if (studio && (user.role === 'STUDENT' || user.role === 'student') && studio.academy_terms) {
+        if (studio && (user?.role === 'STUDENT' || user?.role === 'student') && studio.academy_terms) {
             setViewTermsContent(studio.academy_terms);
         }
-    }, [studio, user.role]);
+    }, [studio, user?.role]);
 
     const { data: contract, isLoading: loadingContract } = useQuery({
-        queryKey: ['contract', user.id],
-        queryFn: () => api.artists.getContract(user.id),
+        queryKey: ['contract', user?.id],
+        queryFn: () => (user?.id ? api.artists.getContract(user.id) : Promise.resolve(null)),
         enabled: !!user && (user.role === 'ARTIST' || user.role === 'artist'),
         staleTime: 1000 * 60 * 10
     });
 
     const today = startOfDay(new Date());
     const endNextWeek = endOfWeek(addWeeks(today, 1), { weekStartsOn: 1 });
-    const isArtist = user.role === 'ARTIST' || user.role === 'artist';
-    const artistIdFilter = (isArtist && !viewAllAppointments) ? user.id : undefined;
+    const isArtist = user?.role === 'ARTIST' || user?.role === 'artist';
+    const artistIdFilter = (isArtist && !viewAllAppointments) ? user?.id : undefined;
 
     const { data: appointments = [], isLoading: loadingAppts, refetch: refetchAppts } = useQuery({
-        queryKey: ['appointments', user.studio_id, today.toISOString(), artistIdFilter],
+        queryKey: ['appointments', user?.studio_id, today.toISOString(), artistIdFilter],
         queryFn: async () => {
+            if (!user?.studio_id) return [];
             const list = await api.appointments.list(today, endNextWeek, artistIdFilter, user.studio_id);
             // Enrich with client data if missing (though Repo usually joins it)
             // Ideally Repo should do this. For now we keep the parallel fetch if needed, 
@@ -559,7 +553,7 @@ export const Dashboard: React.FC = () => {
                                                             </div>
 
                                                             <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
-                                                                {user.role !== 'ARTIST' && user.role !== 'artist' && (
+                                                                {user?.role !== 'ARTIST' && user?.role !== 'artist' && (
                                                                     <button
                                                                         onClick={() => sendWhatsAppReminder(appt, 'CONFIRMATION')}
                                                                         className="p-2 text-green-400 hover:bg-green-400/10 rounded-lg transition-colors"
@@ -635,7 +629,7 @@ export const Dashboard: React.FC = () => {
                                                             </div>
 
                                                             <div className="flex gap-2 justify-end" onClick={(e) => e.stopPropagation()}>
-                                                                {user.role !== 'ARTIST' && user.role !== 'artist' && (
+                                                                {user?.role !== 'ARTIST' && user?.role !== 'artist' && (
                                                                     <>
                                                                         <button
                                                                             onClick={() => sendWhatsAppReminder(appt, 'WEEK_NOTICE')}
