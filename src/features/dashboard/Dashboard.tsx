@@ -12,9 +12,6 @@ import { api } from '../../services/api';
 import { useRealtime } from '../../hooks/useRealtime';
 import type {
     Appointment,
-    Studio,
-    Course,
-    CourseEnrollment
 } from '../../services/types';
 import { format, parseISO, startOfDay, addWeeks, endOfWeek, isSameWeek } from 'date-fns';
 import { it } from 'date-fns/locale';
@@ -103,23 +100,24 @@ export const Dashboard: React.FC = () => {
             }));
             return enhanced.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
         },
-        enabled: !!user.studio_id
+        enabled: !!user?.studio_id
     });
 
     const { data: stats = { revenue_today: 0, revenue_month: 0, waitlist_count: 0, staff_present: 0, staff_total: 0 }, isLoading: loadingStats, refetch: refetchStats } = useQuery({
-        queryKey: ['dashboard-stats', user.studio_id],
+        queryKey: ['dashboard-stats', user?.studio_id],
         queryFn: async () => {
+            if (!user?.studio_id) return { revenue_today: 0, revenue_month: 0, waitlist_count: 0, staff_present: 0, staff_total: 0 };
             const fStats = await api.financials.getStats(new Date(), user.studio_id);
 
             let wCount = 0;
-            if (user.studio_id) {
+            if (user?.studio_id) {
                 const wList = await api.waitlist.list(user.studio_id);
                 wCount = wList.filter(w => w.status === 'PENDING').length;
             }
 
             let sPresent = 0;
             let sTotal = 0;
-            if (user.studio_id) {
+            if (user?.studio_id) {
                 const team = await api.settings.listTeamMembers(user.studio_id);
                 sTotal = team.length;
                 sPresent = team.length; // Mock
@@ -133,7 +131,7 @@ export const Dashboard: React.FC = () => {
                 staff_total: sTotal
             };
         },
-        enabled: !!user.studio_id && (user.role === 'owner' || user.role === 'studio_admin' || user.role === 'manager')
+        enabled: !!user?.studio_id && (user?.role === 'owner' || user?.role === 'studio_admin' || user?.role === 'manager')
     });
 
     const loading = loadingStudent || loadingStudio || loadingContract || loadingAppts || loadingStats;
@@ -152,7 +150,7 @@ export const Dashboard: React.FC = () => {
             }
 
             // Auto-add to Waitlist if status is PENDING
-            if (data.status === 'PENDING' && user.studio_id) {
+            if (data.status === 'PENDING' && user?.studio_id) {
                 // If we have client data (either from selectedAppointment or data)
                 const clientId = data.client_id || selectedAppointment?.client_id;
 
@@ -164,7 +162,7 @@ export const Dashboard: React.FC = () => {
                     const client = await api.clients.getById(clientId);
                     if (client) {
                         await api.waitlist.addToWaitlist({
-                            studio_id: user.studio_id,
+                            studio_id: user.studio_id!,
                             client_id: client.id,
                             email: client.email,
                             phone: client.phone,
@@ -205,13 +203,13 @@ export const Dashboard: React.FC = () => {
     });
 
     useRealtime('waitlist_entries', () => {
-        if (user.role?.toLowerCase() === 'owner' || user.role?.toLowerCase() === 'manager') {
+        if (user?.role?.toLowerCase() === 'owner' || user?.role?.toLowerCase() === 'manager') {
             refetchStats();
         }
     });
 
     useRealtime('transactions', () => {
-        if (user.role?.toLowerCase() === 'owner' || user.role?.toLowerCase() === 'manager') {
+        if (user?.role?.toLowerCase() === 'owner' || user?.role?.toLowerCase() === 'manager') {
             refetchStats();
         }
     });
@@ -441,7 +439,7 @@ export const Dashboard: React.FC = () => {
                             {studio?.name || 'InkFlow CRM'}
                         </h1>
                         <p className="text-text-muted text-sm md:text-base">
-                            Bentornato, <span className="text-text-primary font-medium">{user.full_name || user.email?.split('@')[0] || 'User'}</span>
+                            Bentornato, <span className="text-text-primary font-medium">{user?.full_name || user?.email?.split('@')[0] || 'User'}</span>
                         </p>
                     </div>
                     <div className="flex gap-2 md:hidden">
@@ -462,18 +460,18 @@ export const Dashboard: React.FC = () => {
                     </div>
                 </header>
 
-                {(user.role?.toLowerCase() === 'owner' || user.role?.toLowerCase() === 'studio_admin' || user.role?.toLowerCase() === 'manager') && renderAdminWidgets()}
-                {user.role?.toLowerCase() === 'artist' && renderArtistWidgets()}
-                {(user.role?.toLowerCase() === 'student') && renderStudentWidgets()}
+                {(user?.role?.toLowerCase() === 'owner' || user?.role?.toLowerCase() === 'studio_admin' || user?.role?.toLowerCase() === 'manager') && renderAdminWidgets()}
+                {user?.role?.toLowerCase() === 'artist' && renderArtistWidgets()}
+                {(user?.role?.toLowerCase() === 'student') && renderStudentWidgets()}
 
-                {user.role?.toLowerCase() !== 'student' && (
+                {user?.role?.toLowerCase() !== 'student' && (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-20">
                         <div className="lg:col-span-2 bg-bg-secondary border border-border rounded-lg p-6 min-h-[300px]">
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="text-lg font-bold text-text-primary">
-                                    {user.role?.toLowerCase() === 'artist' ? 'Programma di Oggi' : 'Appuntamenti Recenti'}
+                                    {user?.role?.toLowerCase() === 'artist' ? 'Programma di Oggi' : 'Appuntamenti Recenti'}
                                 </h3>
-                                {(user.role?.toLowerCase() === 'artist') && (
+                                {(user?.role?.toLowerCase() === 'artist') && (
                                     <button
                                         onClick={() => setViewAllAppointments(!viewAllAppointments)}
                                         className={clsx(
