@@ -1291,11 +1291,14 @@ export class SupabaseRepository implements IRepository {
 
     waitlist = {
         list: async (studioId: string): Promise<WaitlistEntry[]> => {
+            // OPTIMIZATION: We explicitly EXCLUDE 'images' because they might be base64 and huge.
+            // This ensures the list loads instantly. Images should be fetched on demand or optimized to storage URLs.
             const { data, error } = await supabase
                 .from('waitlist_entries')
-                .select('*')
+                .select('id, studio_id, client_id, email, phone, client_name, preferred_artist_id, styles, description, status, created_at, interest_type, notes')
                 .eq('studio_id', studioId)
                 .order('created_at', { ascending: false });
+
             if (error) throw error;
             return data || [];
         },
