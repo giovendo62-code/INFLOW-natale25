@@ -9,7 +9,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRealtime } from '../../hooks/useRealtime';
 import { ManualWaitlistModal } from './components/ManualWaitlistModal';
 
-import { WaitlistOptimizer } from './components/WaitlistOptimizer';
+
 
 export const WaitlistManager: React.FC = () => {
     const { user } = useAuth();
