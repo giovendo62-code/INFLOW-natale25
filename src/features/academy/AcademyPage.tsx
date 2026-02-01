@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BookOpen, FileText, Plus, Users, Minus, Clock, DollarSign, X, ChevronRight, RefreshCw, Trash2, PlayCircle, Edit2, Check } from 'lucide-react';
 import { api } from '../../services/api';
-import type { Course, CourseMaterial, CourseEnrollment, AttendanceLog, User } from '../../services/types';
+import type { Course, CourseMaterial, CourseEnrollment, AttendanceLog, User, AttendanceRecord } from '../../services/types';
 import clsx from 'clsx';
 import { useAuth } from '../auth/AuthContext';
 import { StudentProfileModal } from './components/StudentProfileModal';
@@ -40,6 +40,7 @@ export const AcademyPage: React.FC = () => {
     const [profileStudent, setProfileStudent] = useState<User | null>(null);
     const [profileEnrollments, setProfileEnrollments] = useState<Record<string, CourseEnrollment>>({});
     const [loadingProfile, setLoadingProfile] = useState(false);
+    const [myCheckins, setMyCheckins] = useState<AttendanceRecord[]>([]);
 
     // Quick Attendance State
     const [courseEnrollments, setCourseEnrollments] = useState<Record<string, CourseEnrollment>>({}); // Map studentId -> Enrollment
@@ -107,6 +108,16 @@ export const AcademyPage: React.FC = () => {
                 const studio = await api.settings.getStudio(user.studio_id);
                 if (studio && studio.academy_terms) {
                     setTermsText(studio.academy_terms);
+                }
+            }
+
+            // Load own attendance if student
+            if (user?.role === 'student') {
+                try {
+                    const history = await api.academy.getAttendanceHistory(user.id);
+                    setMyCheckins(history);
+                } catch (e) {
+                    console.error('Failed to load attendance history', e);
                 }
             }
         } catch (err) {
@@ -492,6 +503,26 @@ export const AcademyPage: React.FC = () => {
                     <h1 className="text-2xl font-bold text-text-primary">Academy</h1>
                     <p className="text-text-muted">Gestione corsi, materiali e studenti.</p>
                 </div>
+
+                {user?.role === 'student' && (
+                    <div className="bg-bg-tertiary p-4 rounded-xl border border-border flex items-center gap-4">
+                        <div className="p-3 bg-accent/20 rounded-full text-accent">
+                            <Clock size={24} />
+                        </div>
+                        <div>
+                            <p className="text-sm text-text-muted font-bold">I Miei Ingressi</p>
+                            <p className="text-2xl font-bold text-text-primary">{myCheckins.length}</p>
+                        </div>
+                        <button
+                            onClick={() => {
+                                alert('Storico ingressi:\n' + myCheckins.map(c => `${new Date(c.check_in_time).toLocaleDateString()} ${new Date(c.check_in_time).toLocaleTimeString()}`).join('\n'));
+                            }}
+                            className="bg-bg-secondary hover:bg-bg-primary text-text-muted hover:text-text-primary px-3 py-1 rounded text-xs font-bold border border-border transition-colors ml-4"
+                        >
+                            Vedi Tutti
+                        </button>
+                    </div>
+                )}
 
                 <div className="flex gap-2">
                     {user?.role !== 'student' && (

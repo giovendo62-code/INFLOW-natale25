@@ -178,6 +178,15 @@ export interface ClientConsent {
   signed_by_role: string;
 }
 
+export interface AttendanceRecord {
+  id: string;
+  user_id: string;
+  check_in_time: string;
+  check_out_time?: string;
+  method: 'QR' | 'MANUAL';
+  created_at: string;
+}
+
 export interface AttendanceLog {
   id: string;
   student_id: string;
@@ -265,6 +274,7 @@ export interface IRepository {
     updateEnrollment(courseId: string, studentId: string, data: Partial<CourseEnrollment>): Promise<CourseEnrollment>;
     logAttendance(log: Omit<AttendanceLog, 'id' | 'created_at'>): Promise<void>;
     getAttendanceLogs(courseId: string, studentId: string): Promise<AttendanceLog[]>;
+    getAttendanceHistory(userId: string): Promise<AttendanceRecord[]>;
     updateTerms(studioId: string, terms: string): Promise<void>;
     acceptTerms(userId: string, version: number): Promise<void>;
   };
@@ -304,6 +314,11 @@ export interface IRepository {
     addPresence(artistId: string, studioId: string, userId: string): Promise<void>;
     resetPresences(artistId: string, studioId: string, userId: string, note?: string): Promise<void>;
     getPresenceLogs(artistId: string): Promise<PresenceLog[]>;
+  };
+
+  attendance: {
+    checkIn(userId: string): Promise<void>;
+    delete(attendanceId: string): Promise<void>;
   };
   marketing: {
     listCampaigns(): Promise<MarketingCampaign[]>;

@@ -156,6 +156,8 @@ export const LoginPage: React.FC = () => {
                             <label className="block text-sm font-medium text-text-secondary mb-1">Email</label>
                             <input
                                 type="email"
+                                name="email"
+                                autoComplete="username"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2 text-text-primary focus:ring-accent focus:border-accent transition-all"
@@ -168,6 +170,8 @@ export const LoginPage: React.FC = () => {
                             <div className="relative">
                                 <input
                                     type={showPassword ? "text" : "password"}
+                                    name="password"
+                                    autoComplete={activeTab === 'login' ? "current-password" : "new-password"}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     className="w-full bg-bg-tertiary border border-border rounded-lg px-3 py-2 text-text-primary focus:ring-accent focus:border-accent pr-10 transition-all"
@@ -183,8 +187,21 @@ export const LoginPage: React.FC = () => {
                                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                                 </button>
                             </div>
+
+                            {/* Actions Row: Remember Me & Forgot Password */}
                             {activeTab === 'login' && (
-                                <div className="flex justify-end mt-1">
+                                <div className="flex items-center justify-between mt-3">
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="remember"
+                                            className="rounded border-gray-300 text-accent focus:ring-accent"
+                                            defaultChecked
+                                        />
+                                        <label htmlFor="remember" className="text-xs text-text-secondary cursor-pointer">
+                                            Resta collegato
+                                        </label>
+                                    </div>
                                     <Link to="/forgot-password" className="text-xs text-accent hover:text-accent-hover transition-colors">
                                         Password dimenticata?
                                     </Link>

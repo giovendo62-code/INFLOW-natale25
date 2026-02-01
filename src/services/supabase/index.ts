@@ -1,6 +1,6 @@
 import { supabase } from '../../lib/supabase';
 
-import type { IRepository, AuthSession, User, Appointment, Client, Transaction, FinancialStats, CourseMaterial, StudentAttendance, ClientConsent, ArtistContract, PresenceLog, MarketingCampaign, WaitlistEntry, Course, Communication, CommunicationReply, ConsentTemplate, CourseEnrollment, AttendanceLog, UserRole, Studio } from '../types';
+import type { IRepository, AuthSession, User, Appointment, Client, Transaction, FinancialStats, CourseMaterial, StudentAttendance, ClientConsent, ArtistContract, PresenceLog, MarketingCampaign, WaitlistEntry, Course, Communication, CommunicationReply, ConsentTemplate, CourseEnrollment, AttendanceLog, UserRole, Studio, AttendanceRecord } from '../types';
 
 // Helper to identify the studio owner for Google Sync
 const getStudioOwnerId = async (studioId: string): Promise<string | null> => {
@@ -1259,23 +1259,14 @@ export class SupabaseRepository implements IRepository {
             });
         },
         resetPresences: async (artistId: string, studioId: string, userId: string, note?: string): Promise<void> => {
-            const { error: updateError } = await supabase
-                .from('artist_contracts')
-                .update({
-                    used_presences: 0,
-                    presence_cycle_start: new Date().toISOString()
-                })
-                .eq('artist_id', artistId);
-
-            if (updateError) throw updateError;
-
-            await supabase.from('presence_logs').insert({
-                studio_id: studioId,
-                artist_id: artistId,
-                action: 'RESET',
-                created_by: userId,
-                note
+            const { error } = await supabase.rpc('reset_artist_cycle', {
+                p_artist_id: artistId,
+                p_studio_id: studioId,
+                p_operator_id: userId,
+                p_note: note
             });
+
+            if (error) throw error;
         },
         getPresenceLogs: async (artistId: string): Promise<PresenceLog[]> => {
             const { data, error } = await supabase
@@ -1286,6 +1277,54 @@ export class SupabaseRepository implements IRepository {
 
             if (error) throw error;
             return data || [];
+        }
+    };
+
+    attendance = {
+        checkIn: async (userId: string): Promise<void> => {
+            // 1. Register physical check-in (attendance table)
+            // This table has a UNIQUE constraint on (user_id, checkin_date)
+            // If it fails with code 23505, it means already checked in today.
+            const { error: checkinError } = await supabase
+                .from('attendance')
+                .insert({ user_id: userId });
+
+            if (checkinError) {
+                // If unique violation, we can just return or throw specific error
+                if (checkinError.code === '23505') {
+                    throw new Error('Presenza già registrata oggi');
+                }
+                throw checkinError;
+            }
+
+            // 2. Consume token safely via RPC (SECURITY DEFINER) to bypass RLS
+            // This RPC internally checks if:
+            // - User is an artist
+            // - Contract is PRESENCES
+            // - Limits are respected
+            // And then updates the contract and logs the presence.
+
+            const { data: rpcResult, error: rpcError } = await supabase.rpc('consume_artist_presence', {
+                p_artist_id: userId
+            });
+
+            if (rpcError) {
+                console.error('RPC consume_artist_presence failed:', rpcError);
+                // We do not throw here because the physical check-in (step 1) WAS successful.
+                // We just log that the token wasn't consumed.
+            } else {
+                if (rpcResult && rpcResult.success === false) {
+                    console.warn('Presence token NOT consumed:', rpcResult.error);
+                } else {
+                    console.log('Presence token consumed via RPC');
+                }
+            }
+        },
+        delete: async (attendanceId: string): Promise<void> => {
+            const { error } = await supabase.rpc('delete_attendance_entry', {
+                p_attendance_id: attendanceId
+            });
+            if (error) throw error;
         }
     };
 
@@ -1547,6 +1586,15 @@ export class SupabaseRepository implements IRepository {
             const { data, error } = await supabase.from('academy_attendance_logs').select('*').eq('course_id', courseId).eq('student_id', studentId).order('created_at', { ascending: false });
             if (error) throw error;
             return data as AttendanceLog[];
+        },
+        getAttendanceHistory: async (userId: string): Promise<AttendanceRecord[]> => {
+            const { data, error } = await supabase
+                .from('attendance')
+                .select('*')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+            return data as AttendanceRecord[];
         },
         updateTerms: async (studioId: string, terms: string): Promise<void> => {
             // Fallback if RPC doesn't exist (using 2-step for safety if migration fail, but better use direct update if simple)

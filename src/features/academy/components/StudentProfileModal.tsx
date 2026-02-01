@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, BookOpen, Clock, DollarSign, RefreshCw as RefreshingCw } from 'lucide-react';
 import clsx from 'clsx';
-import type { User, Course, CourseEnrollment } from '../../../services/types';
+import type { User, Course, CourseEnrollment, AttendanceRecord } from '../../../services/types';
 import { api } from '../../../services/api';
 
 interface StudentProfileModalProps {
@@ -17,7 +17,8 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({ studen
     const enrolledCourses = courses.filter(c => c.student_ids?.includes(student.id));
 
     // State for Profile Tab
-    const [activeTab, setActiveTab] = React.useState<'COURSES' | 'PROFILE'>('COURSES');
+    const [activeTab, setActiveTab] = React.useState<'COURSES' | 'PROFILE' | 'CHECKINS'>('COURSES');
+    const [checkins, setCheckins] = React.useState<AttendanceRecord[]>([]);
     const [editForm, setEditForm] = React.useState<Partial<User>>({});
     const [saving, setSaving] = React.useState(false);
 
@@ -36,6 +37,11 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({ studen
                 sdi_code: student.sdi_code,
                 pec: student.pec
             });
+
+            // Load Checkins
+            api.academy.getAttendanceHistory(student.id)
+                .then(setCheckins)
+                .catch(e => console.error(e));
         }
     }, [student]);
 
@@ -96,11 +102,50 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({ studen
                     >
                         Anagrafica & Fatturazione
                     </button>
+                    <button
+                        onClick={() => setActiveTab('CHECKINS')}
+                        className={clsx("flex-1 py-3 text-sm font-bold transition-colors border-b-2", activeTab === 'CHECKINS' ? "border-accent text-accent bg-accent/5" : "border-transparent text-text-muted hover:text-text-primary")}
+                    >
+                        Storico Ingressi
+                    </button>
                 </div>
 
                 {/* Content */}
                 <div className="p-6 overflow-y-auto bg-bg-secondary flex-1">
-                    {activeTab === 'COURSES' ? (
+                    {activeTab === 'CHECKINS' ? (
+                        <div className="space-y-4 animate-in fade-in">
+                            <h3 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
+                                <Clock size={20} className="text-accent" /> Storico Ingressi Check-in
+                            </h3>
+                            {checkins.length === 0 ? (
+                                <div className="text-center py-8 text-text-muted italic bg-bg-tertiary/20 rounded-lg">
+                                    Nessun ingresso registrato.
+                                </div>
+                            ) : (
+                                checkins.map((record) => (
+                                    <div key={record.id} className="flex items-center justify-between p-4 bg-bg-tertiary rounded-lg border border-border">
+                                        <div className="flex items-center gap-4">
+                                            <div className="p-3 bg-green-500/10 rounded-lg text-green-500">
+                                                <RefreshingCw size={20} />
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-text-primary">Ingresso Registrato</p>
+                                                <p className="text-xs text-text-muted">Metodo: {record.method}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-sm font-bold text-text-primary">
+                                                {new Date(record.check_in_time).toLocaleDateString()}
+                                            </p>
+                                            <p className="text-xs text-text-muted">
+                                                {new Date(record.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    ) : activeTab === 'COURSES' ? (
                         loading ? (
                             <div className="flex flex-col items-center justify-center py-12 text-text-muted">
                                 <RefreshingCw size={32} className="animate-spin mb-4 opacity-50" />

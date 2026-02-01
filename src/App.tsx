@@ -38,6 +38,7 @@ const TeamPage = lazy(() => import('./features/team/TeamPage').then(m => ({ defa
 // Public Forms
 const WaitlistForm = lazy(() => import('./features/waitlist/WaitlistForm').then(m => ({ default: m.WaitlistForm })));
 const PublicClientForm = lazy(() => import('./features/clients/PublicClientForm').then(m => ({ default: m.PublicClientForm })));
+const CheckInPage = lazy(() => import('./pages/CheckInPage').then(m => ({ default: m.CheckInPage })));
 
 // Components that were placeholders or simple
 const ChatPage = () => (
@@ -89,6 +90,11 @@ function App() {
                         {/* Public Routes */}
                         <Route path="/public/waitlist/:studioId" element={<WaitlistForm />} />
                         <Route path="/public/register/:studioId" element={<PublicClientForm />} />
+
+                        {/* Check-in Presenze - Protected by Login */}
+                        <Route element={<RoleGuard />}>
+                            <Route path="/checkin" element={<CheckInPage />} />
+                        </Route>
 
                         {/* Invitation Acceptance */}
                         <Route path="/accept-invite" element={<AcceptInvitePage />} />

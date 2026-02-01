@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { User, Building, FileText, Palette, Moon, Sun, Link, Save } from 'lucide-react';
+import QRCode from 'react-qr-code';
+import { User, Building, FileText, Palette, Moon, Sun, Link, Save, QrCode, Printer, Info } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../auth/AuthContext';
 import { useLayoutStore } from '../../stores/layoutStore';
@@ -8,8 +9,15 @@ import { TeamSettings } from './components/TeamSettings';
 import { StudioSettings } from './components/StudioSettings';
 import { ArtistContractSettings } from './components/ArtistContractSettings';
 import { IntegrationsTab } from '../artists/components/IntegrationsTab';
-
 import { useLocation } from 'react-router-dom';
+
+// ... (inside the component)
+
+
+
+// ...
+
+
 
 export const SettingsPage: React.FC = () => {
     const { user, refreshProfile } = useAuth();
@@ -45,6 +53,7 @@ export const SettingsPage: React.FC = () => {
         // ...(['owner', 'studio_admin', 'manager'].includes(normalizedRole) ? [{ id: 'team', label: 'Gestione Team', icon: Users }] : []),
         // Show Studio Info for OWNER, STUDIO_ADMIN
         ...(['owner', 'studio_admin'].includes(normalizedRole) ? [{ id: 'studio', label: 'Info Studio', icon: Building }] : []),
+        ...(['owner', 'studio_admin', 'manager'].includes(normalizedRole) ? [{ id: 'checkin-qr', label: 'Check-in QR', icon: QrCode }] : []),
         // Show Contract for ARTIST
         ...(['artist'].includes(normalizedRole) ? [{ id: 'contract', label: 'Il Mio Contratto', icon: FileText }] : []),
         ...(['owner'].includes(normalizedRole) ? [{ id: 'integrations', label: 'Integrazioni', icon: Link }] : []),
@@ -101,6 +110,46 @@ export const SettingsPage: React.FC = () => {
                 {activeTab === 'studio' && <StudioSettings />}
                 {activeTab === 'contract' && <ArtistContractSettings />}
                 {activeTab === 'integrations' && user && <IntegrationsTab artist={user} onUpdate={handleUpdate} />}
+                {activeTab === 'checkin-qr' && (
+                    <div className="space-y-6">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-2xl font-bold text-text-primary">QR Code Presenze</h2>
+                            <button
+                                onClick={() => window.print()}
+                                className="px-4 py-2 bg-bg-secondary hover:bg-bg-tertiary text-text-primary rounded-lg font-medium transition-colors flex items-center gap-2 border border-border"
+                            >
+                                <Printer size={18} />
+                                Stampa
+                            </button>
+                        </div>
+
+                        <div className="bg-white p-8 rounded-xl border border-border flex flex-col items-center text-center shadow-sm max-w-md mx-auto">
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Check-in Giornaliero</h3>
+                            <p className="text-sm text-gray-500 mb-8">Scansiona questo codice per registrare la tua presenza.</p>
+
+                            <div className="p-4 bg-white border-2 border-gray-100 rounded-xl">
+                                <QRCode
+                                    value={`${window.location.origin}/checkin`}
+                                    size={256}
+                                    style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                                    viewBox={`0 0 256 256`}
+                                />
+                            </div>
+
+                            <p className="mt-8 text-xs text-gray-400 font-mono">
+                                {window.location.origin}/checkin
+                            </p>
+                        </div>
+
+                        <div className="bg-blue-50 border border-blue-100 p-4 rounded-lg flex gap-3 text-blue-700 text-sm">
+                            <Info size={20} className="flex-shrink-0" />
+                            <p>
+                                Stampa questa pagina e appendi il QR Code all'ingresso dello studio.
+                                Gli Artisti e gli Studenti potranno scansionarlo per accedere rapidamente alla pagina di check-in.
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 {activeTab === 'appearance' && (
                     <div className="space-y-6">

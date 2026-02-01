@@ -2,13 +2,13 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useAuth } from '../auth/AuthContext';
-import type { User, ArtistContract, PresenceLog, RentType, ArtistDocument } from '../../services/types';
+import type { User, ArtistContract, PresenceLog, RentType, ArtistDocument, AttendanceRecord } from '../../services/types';
 import { Save, RefreshCw, Plus, Clock, AlertTriangle, ArrowLeft, Upload, FileText, Trash2, MessageCircle } from 'lucide-react';
 import clsx from 'clsx';
 import { useLayoutStore } from '../../stores/layoutStore';
 import { Modal } from '../../components/Modal';
 
-type Tab = 'DETAILS' | 'CONTRACT' | 'PRESENCES' | 'DOCUMENTS';
+type Tab = 'DETAILS' | 'CONTRACT' | 'PRESENCES' | 'Documents' | 'CHECKINS';
 
 export const ArtistProfilePage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -20,6 +20,7 @@ export const ArtistProfilePage: React.FC = () => {
     const [artist, setArtist] = useState<User | null>(null);
     const [contract, setContract] = useState<ArtistContract | null>(null);
     const [logs, setLogs] = useState<PresenceLog[]>([]);
+    const [checkins, setCheckins] = useState<AttendanceRecord[]>([]);
     const [activeTab, setActiveTab] = useState<Tab>('DETAILS');
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -81,6 +82,14 @@ export const ArtistProfilePage: React.FC = () => {
                 if (c.documents) {
                     setDocs(c.documents);
                 }
+            }
+
+            // Load Checkins
+            try {
+                const history = await api.academy.getAttendanceHistory(id);
+                setCheckins(history);
+            } catch (e) {
+                console.error('Failed to load checkins', e);
             }
         } catch (err) {
             console.error(err);
@@ -282,13 +291,26 @@ export const ArtistProfilePage: React.FC = () => {
                             {tab === 'DETAILS' && 'DETTAGLI'}
                             {tab === 'CONTRACT' && 'CONTRATTO'}
                             {tab === 'PRESENCES' && 'PRESENZE'}
-                            {tab === 'DOCUMENTS' && 'DOCUMENTI'}
+                            {tab === 'Documents' && 'DOCUMENTI'}
+                            {tab === 'CHECKINS' && 'INGRESSI'}
                             {activeTab === tab && (
                                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />
                             )}
                         </button>
                     );
                 })}
+                <button
+                    onClick={() => setActiveTab('CHECKINS')}
+                    className={clsx(
+                        'px-6 py-3 text-sm font-medium transition-colors relative whitespace-nowrap',
+                        activeTab === 'CHECKINS' ? 'text-accent' : 'text-text-muted hover:text-text-primary'
+                    )}
+                >
+                    INGRESSI
+                    {activeTab === 'CHECKINS' && (
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent" />
+                    )}
+                </button>
             </div>
 
             {error && (
@@ -600,7 +622,7 @@ export const ArtistProfilePage: React.FC = () => {
                     </div>
                 )}
 
-                {activeTab === 'DOCUMENTS' && (
+                {activeTab === 'Documents' && (
                     <div>
                         <div className="flex justify-between items-center mb-6">
                             <h3 className="text-lg font-bold text-text-primary">Documenti & Certificati</h3>
@@ -659,6 +681,67 @@ export const ArtistProfilePage: React.FC = () => {
                                 </button>
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {activeTab === 'CHECKINS' && (
+                    <div>
+                        <h3 className="text-lg font-bold text-text-primary mb-6 flex items-center gap-2">
+                            <Clock size={20} className="text-accent" /> Storico Ingressi Check-in
+                        </h3>
+
+                        {checkins.length === 0 ? (
+                            <div className="text-center py-8 text-text-muted italic bg-bg-tertiary/20 rounded-lg">
+                                Nessun ingresso registrato.
+                            </div>
+                        ) : (
+                            checkins.map((record) => (
+                                <div key={record.id} className="flex items-center justify-between p-4 bg-bg-tertiary rounded-lg border border-border group hover:border-red-500/30 transition-colors">
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-3 bg-green-500/10 rounded-lg text-green-500">
+                                            <RefreshCw size={20} />
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-text-primary">Ingresso Registrato</p>
+                                            <p className="text-xs text-text-muted">Metodo: {record.method}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <div className="text-right">
+                                            <p className="text-sm font-bold text-text-primary">
+                                                {new Date(record.check_in_time).toLocaleDateString()}
+                                            </p>
+                                            <p className="text-xs text-text-muted">
+                                                {new Date(record.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                        </div>
+                                        {/* Delete Button for Owner/Manager */}
+                                        {(user?.role === 'owner' || user?.role === 'manager') && (
+                                            <button
+                                                onClick={async () => {
+                                                    if (confirm('Sei sicuro di voler eliminare questa presenza? L\'artista potrà effettuare nuovamente il check-in per questa data.')) {
+                                                        try {
+                                                            await api.attendance.delete(record.id);
+                                                            // Reload checkins
+                                                            const history = await api.academy.getAttendanceHistory(id!);
+                                                            setCheckins(history);
+                                                            alert('Presenza eliminata.');
+                                                        } catch (err: any) {
+                                                            console.error(err);
+                                                            alert('Errore eliminazione: ' + err.message);
+                                                        }
+                                                    }
+                                                }}
+                                                className="p-2 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                                title="Elimina Presenza"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))
+                        )}
                     </div>
                 )}
 
