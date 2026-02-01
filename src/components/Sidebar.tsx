@@ -20,7 +20,8 @@ import {
     MessageCircle,
     FileSignature,
     Building,
-    UserCog
+    UserCog,
+    RefreshCw
 } from 'lucide-react';
 import clsx from 'clsx';
 import { useLayoutStore } from '../stores/layoutStore';
@@ -147,6 +148,13 @@ export const Sidebar = () => {
                         <p className="text-xs text-text-muted capitalize">
                             {user?.role === 'owner' ? 'Owner' : (user?.role || '').toLowerCase() || 'Member'}
                         </p>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="mt-2 flex items-center justify-center gap-1.5 px-3 py-1 bg-accent/10 hover:bg-accent/20 text-accent rounded-full text-xs font-bold transition-colors mx-auto"
+                        >
+                            <RefreshCw size={12} />
+                            <span>Aggiorna</span>
+                        </button>
                     </div>
                 </div>
 

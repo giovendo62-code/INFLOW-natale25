@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Calendar, Menu, X, LogOut, Users, MessageCircle, ClipboardList, QrCode } from 'lucide-react';
+import { LayoutDashboard, Calendar, Menu, X, LogOut, Users, MessageCircle, ClipboardList, QrCode, RefreshCw } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuth } from '../features/auth/AuthContext';
 import { NAV_ITEMS } from './Sidebar';
@@ -116,6 +116,15 @@ export const MobileNav: React.FC = () => {
                         {studio?.name || 'InkFlow'}
                     </span>
                 </div>
+
+                {/* Refresh Button - Absolute Right */}
+                <button
+                    onClick={() => window.location.reload()}
+                    className="absolute right-4 p-2 text-text-muted hover:text-accent transition-colors"
+                    aria-label="Aggiorna App"
+                >
+                    <RefreshCw size={20} />
+                </button>
             </div>
 
             {/* Bottom Navigation Bar */}
