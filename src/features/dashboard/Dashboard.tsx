@@ -66,11 +66,38 @@ export const Dashboard: React.FC = () => {
     });
 
     // Auto-set terms if student
+    const [isAcceptTermsOpen, setIsAcceptTermsOpen] = useState(false);
+    const { refreshProfile } = useAuth();
+    const [acceptingTerms, setAcceptingTerms] = useState(false);
+
     useEffect(() => {
         if (studio && (user?.role === 'STUDENT' || user?.role === 'student') && studio.academy_terms) {
             setViewTermsContent(studio.academy_terms);
+
+            // Check version
+            const studioVersion = studio.academy_terms_version || 0;
+            const userVersion = user.academy_terms_accepted_version || 0;
+
+            if (studioVersion > userVersion) {
+                setIsAcceptTermsOpen(true);
+            }
         }
-    }, [studio, user?.role]);
+    }, [studio, user]);
+
+    const handleAcceptTerms = async () => {
+        if (!user || !studio?.academy_terms_version) return;
+        setAcceptingTerms(true);
+        try {
+            await api.academy.acceptTerms(user.id, studio.academy_terms_version);
+            await refreshProfile(); // Refresh user to update local version
+            setIsAcceptTermsOpen(false);
+        } catch (error) {
+            console.error(error);
+            alert("Errore durante l'accettazione.");
+        } finally {
+            setAcceptingTerms(false);
+        }
+    };
 
     const { data: contract, isLoading: loadingContract } = useQuery({
         queryKey: ['contract', user?.id],
@@ -347,7 +374,7 @@ export const Dashboard: React.FC = () => {
                                 <p className="text-sm text-text-muted">{studentCourse.title}</p>
                             </div>
                         </div>
-                        <p className="text-text-secondary text-sm line-clamp-2 mb-4">
+                        <p className="text-text-secondary text-sm mb-4 whitespace-pre-wrap">
                             {studentCourse.description}
                         </p>
                     </div>
@@ -450,13 +477,15 @@ export const Dashboard: React.FC = () => {
                         >
                             <Share2 size={20} />
                         </button>
-                        <button
-                            onClick={togglePrivacyMode}
-                            className="p-2 bg-bg-secondary border border-border rounded-full text-text-muted hover:text-text-primary transition-colors"
-                            title={isPrivacyMode ? 'Mostra Valori' : 'Nascondi Valori'}
-                        >
-                            {isPrivacyMode ? <EyeOff size={20} /> : <Eye size={20} />}
-                        </button>
+                        {user?.role?.toLowerCase() !== 'student' && (
+                            <button
+                                onClick={togglePrivacyMode}
+                                className="p-2 bg-bg-secondary border border-border rounded-full text-text-muted hover:text-text-primary transition-colors"
+                                title={isPrivacyMode ? 'Mostra Valori' : 'Nascondi Valori'}
+                            >
+                                {isPrivacyMode ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </button>
+                        )}
                     </div>
                 </header>
 
@@ -744,6 +773,52 @@ export const Dashboard: React.FC = () => {
                                 className="px-4 py-2 rounded-lg font-bold bg-bg-tertiary text-text-primary hover:bg-white/10 border border-border transition-colors"
                             >
                                 Chiudi
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* BLOCKING Acceptance Terms Modal */}
+            {isAcceptTermsOpen && (
+                <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
+                    <div className="bg-bg-primary border border-border rounded-xl w-full max-w-2xl flex flex-col max-h-[85vh] shadow-2xl animate-in fade-in zoom-in duration-300">
+                        <div className="p-6 border-b border-border bg-accent/5">
+                            <h2 className="text-xl font-bold text-text-primary flex items-center gap-3">
+                                <FileText className="text-accent" size={28} />
+                                Aggiornamento Termini e Condizioni
+                            </h2>
+                            <p className="text-sm text-text-muted mt-2">
+                                Per continuare ad utilizzare la piattaforma, è necessario leggere e accettare i nuovi termini e condizioni della scuola.
+                            </p>
+                        </div>
+
+                        <div className="p-6 flex-1 overflow-y-auto bg-bg-tertiary/10">
+                            <div className="prose prose-invert max-w-none text-text-secondary text-sm whitespace-pre-wrap font-mono bg-bg-primary p-4 rounded-lg border border-border h-full overflow-y-auto custom-scrollbar">
+                                {viewTermsContent || "Caricamento termini..."}
+                            </div>
+                        </div>
+
+                        <div className="p-6 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4 bg-bg-secondary/50">
+                            <p className="text-xs text-text-muted text-center md:text-left">
+                                Cliccando su "Accetto", confermi di aver letto e compreso quanto riportato sopra.
+                            </p>
+                            <button
+                                onClick={handleAcceptTerms}
+                                disabled={acceptingTerms}
+                                className="w-full md:w-auto px-8 py-3 rounded-xl font-bold bg-accent text-white hover:bg-accent-hover transition-all shadow-lg shadow-accent/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {acceptingTerms ? (
+                                    <>
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                        Accettazione...
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle size={20} />
+                                        Accetto e Continua
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>

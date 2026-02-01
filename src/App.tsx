@@ -161,8 +161,8 @@ function App() {
                                         <Route path="/marketing" element={<MarketingPage />} />
                                     </Route>
 
-                                    {/* Academy (Owner, Admin, Student) */}
-                                    <Route element={<RoleGuard allowedRoles={['owner', 'STUDIO_ADMIN', 'STUDENT']} />}>
+                                    {/* Academy (Owner, Admin - Students managed in Dashboard) */}
+                                    <Route element={<RoleGuard allowedRoles={['owner', 'STUDIO_ADMIN']} />}>
                                         <Route path="/academy" element={<AcademyPage />} />
                                     </Route>
 

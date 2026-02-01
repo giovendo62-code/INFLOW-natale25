@@ -176,9 +176,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(true);
         try {
             await api.auth.signOut();
+        } catch (err) {
+            console.warn('Supabase signOut failed, forcing local logout', err);
+        } finally {
+            // Always clear local state
             setUser(null);
             setHasStudio(false);
-        } finally {
             setIsLoading(false);
         }
     }

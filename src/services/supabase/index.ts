@@ -762,6 +762,16 @@ export class SupabaseRepository implements IRepository {
             if (error) throw error;
             return newTx;
         },
+        updateTransaction: async (id: string, data: Partial<Transaction>): Promise<Transaction> => {
+            const { data: updatedTx, error } = await supabase
+                .from('transactions')
+                .update(data)
+                .eq('id', id)
+                .select()
+                .single();
+            if (error) throw error;
+            return updatedTx;
+        },
         deleteTransaction: async (id: string): Promise<void> => {
             const { error } = await supabase
                 .from('transactions')
@@ -877,6 +887,13 @@ export class SupabaseRepository implements IRepository {
             const { data: updated, error } = await supabase.from('users').update(data).eq('id', userId).select().single();
             if (error) throw error;
             return updated;
+        },
+        setPrivacyPin: async (userId: string, pin: string): Promise<void> => {
+            const { error } = await supabase
+                .from('users')
+                .update({ privacy_pin: pin })
+                .eq('id', userId);
+            if (error) throw error;
         },
         listTeamMembers: async (studioId: string): Promise<User[]> => {
             console.log('[DEBUG] listTeamMembers (v3) called for studio:', studioId);

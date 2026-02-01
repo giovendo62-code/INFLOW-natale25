@@ -477,6 +477,12 @@ export class MockRepository implements IRepository {
             MOCK_TRANSACTIONS.push(newTx);
             return newTx;
         },
+        updateTransaction: async (id: string, data: Partial<Transaction>): Promise<Transaction> => {
+            const idx = MOCK_TRANSACTIONS.findIndex(t => t.id === id);
+            if (idx === -1) throw new Error('Transaction not found');
+            MOCK_TRANSACTIONS[idx] = { ...MOCK_TRANSACTIONS[idx], ...data };
+            return MOCK_TRANSACTIONS[idx];
+        },
         deleteTransaction: async (id: string): Promise<void> => {
             const idx = MOCK_TRANSACTIONS.findIndex(t => t.id === id);
             if (idx !== -1) MOCK_TRANSACTIONS.splice(idx, 1);
@@ -810,6 +816,10 @@ export class MockRepository implements IRepository {
                     }
                 }
             }
+        },
+        setPrivacyPin: async (userId: string, pin: string): Promise<void> => {
+            await new Promise(resolve => setTimeout(resolve, 300));
+            console.log(`[MOCK] Privacy PIN set for ${userId}: ${pin}`);
         },
         updateMemberPermissions: async (_studioId: string, _userId: string, _permissions: { can_view_clients: boolean; can_view_others_financials: boolean }): Promise<void> => {
             await new Promise(resolve => setTimeout(resolve, 300));

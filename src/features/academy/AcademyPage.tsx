@@ -7,11 +7,31 @@ import { useAuth } from '../auth/AuthContext';
 import { StudentProfileModal } from './components/StudentProfileModal';
 import { DragDropUpload } from '../../components/DragDropUpload';
 
+import { useNavigate } from 'react-router-dom';
+
 export const AcademyPage: React.FC = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        if (user?.role?.toLowerCase() === 'student') {
+            navigate('/', { replace: true });
+        }
+    }, [user, navigate]);
     const [courses, setCourses] = useState<Course[]>([]);
     const [allUsers, setAllUsers] = useState<User[]>([]); // Store all team members for lookup
     const [students, setStudents] = useState<User[]>([]); // Store only students for lists
+
+    // Redirect Students to Dashboard (Defense in Depth)
+    useEffect(() => {
+        if (user?.role?.toLowerCase() === 'student') {
+            // Use window.location for hard redirect or useNavigate for soft
+            // Since we are inside a component, useNavigate is better but let's assume we can't easily hook it if not top level?
+            // Wait, this is a page component.
+            // We need 'useNavigate'.
+            // I'll grab it.
+        }
+    }, [user]);
     const [loading, setLoading] = useState(true);
     const [view, setView] = useState<'LIST' | 'CREATE' | 'MANAGE' | 'STUDENTS_LIST'>('LIST');
     const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);

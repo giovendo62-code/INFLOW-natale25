@@ -37,6 +37,7 @@ export interface User {
     can_view_clients: boolean;
     can_view_others_financials: boolean;
   };
+  privacy_pin?: string;
 }
 
 export interface StudioInvitation {
@@ -264,6 +265,7 @@ export interface IRepository {
   financials: {
     listTransactions(startDate: Date, endDate: Date, studioId?: string): Promise<Transaction[]>;
     createTransaction(data: Omit<Transaction, 'id'>): Promise<Transaction>;
+    updateTransaction(id: string, data: Partial<Transaction>): Promise<Transaction>;
     deleteTransaction(id: string): Promise<void>;
     getStats(month: Date, studioId?: string): Promise<FinancialStats>;
     // Recurring
@@ -312,6 +314,7 @@ export interface IRepository {
     acceptInvitation(token: string, userId: string, studioId: string, role: string): Promise<void>;
     updateMemberPermissions(studioId: string, userId: string, permissions: { can_view_clients?: boolean; can_view_others_financials?: boolean }): Promise<void>;
     listStudioInvitations(studioId: string): Promise<StudioInvitation[]>;
+    setPrivacyPin(userId: string, pin: string): Promise<void>;
   };
   consents: {
     getTemplate(studioId: string): Promise<ConsentTemplate | null>;
