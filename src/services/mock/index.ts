@@ -1,4 +1,4 @@
-import type { IRepository, AuthSession, User, Appointment, Client, Transaction, FinancialStats, CourseMaterial, StudentAttendance, ClientConsent, ArtistContract, PresenceLog, MarketingCampaign, WaitlistEntry, Course, Communication, CommunicationReply, ConsentTemplate, Studio, CourseEnrollment, AttendanceLog, RecurringExpense } from '../types';
+import type { IRepository, AuthSession, User, Appointment, Client, Transaction, FinancialStats, CourseMaterial, StudentAttendance, ClientConsent, ArtistContract, PresenceLog, MarketingCampaign, WaitlistEntry, Course, Communication, CommunicationReply, ConsentTemplate, Studio, CourseEnrollment, AttendanceLog, RecurringExpense, AttendanceRecord } from '../types';
 
 const MOCK_STUDIOS: Studio[] = [
     {
@@ -609,7 +609,7 @@ export class MockRepository implements IRepository {
         acceptTerms: async (_userId: string, _version: number): Promise<void> => {
             await new Promise(resolve => setTimeout(resolve, 300));
         },
-        getAttendanceHistory: async (userId: string): Promise<AttendanceRecord[]> => {
+        getAttendanceHistory: async (_userId: string): Promise<AttendanceRecord[]> => {
             // Mock empty attendance history
             return [];
         }
