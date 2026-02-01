@@ -1160,16 +1160,6 @@ export class SupabaseRepository implements IRepository {
                 .eq('user_id', userId);
 
             if (error) throw error;
-        },
-        listStudioInvitations: async (studioId: string): Promise<StudioInvitation[]> => {
-            const { data, error } = await supabase
-                .from('studio_invitations')
-                .select('*')
-                .eq('studio_id', studioId)
-                .is('used_at', null);
-
-            if (error) throw error;
-            return data as StudioInvitation[];
         }
     };
 

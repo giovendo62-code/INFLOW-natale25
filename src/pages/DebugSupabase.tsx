@@ -8,7 +8,7 @@ export const DebugSupabase: React.FC = () => {
     const [diagnostics, setDiagnostics] = useState<any>({});
     const [_loading, setLoading] = useState(true);
 
-    const addLog = (msg: string) => setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - ${msg}`]);
+    const addLog = (msg: string) => setLogs((prev: string[]) => [...prev, `${new Date().toLocaleTimeString()} - ${msg}`]);
 
     useEffect(() => {
         const runDiagnostics = async () => {
@@ -22,7 +22,7 @@ export const DebugSupabase: React.FC = () => {
                 if (sessionError) addLog(`Session Error: ${sessionError.message}`);
 
                 const authId = session?.user?.id;
-                setDiagnostics(prev => ({ ...prev, session: session }));
+                setDiagnostics((prev: any) => ({ ...prev, session: session }));
 
                 if (authId) {
                     // 2. Try to read OWN user record
@@ -35,10 +35,10 @@ export const DebugSupabase: React.FC = () => {
 
                     if (userError) {
                         addLog(`RLS BLOCKED READ (users): ${userError.message} (${userError.code})`);
-                        setDiagnostics(prev => ({ ...prev, userError }));
+                        setDiagnostics((prev: any) => ({ ...prev, userError }));
                     } else {
                         addLog('SUCCESS: Could read own user record.');
-                        setDiagnostics(prev => ({ ...prev, userRecord }));
+                        setDiagnostics((prev: any) => ({ ...prev, userRecord }));
                     }
 
                     // 3. Try to update OWN user record
@@ -65,7 +65,7 @@ export const DebugSupabase: React.FC = () => {
                         addLog(`Error fetching memberships: ${memError.message}`);
                     } else {
                         addLog(`Found ${memberships?.length || 0} memberships.`);
-                        setDiagnostics(prev => ({ ...prev, memberships }));
+                        setDiagnostics((prev: any) => ({ ...prev, memberships }));
                     }
 
                     // 5. Check Studio Invitations (if owner)
