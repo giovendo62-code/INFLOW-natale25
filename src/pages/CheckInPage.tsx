@@ -7,7 +7,7 @@ import { it } from 'date-fns/locale';
 
 interface AttendanceRecord {
     id: string;
-    checkin_time: string;
+    check_in_time: string;
     checkin_date: string;
 }
 
@@ -43,7 +43,7 @@ export const CheckInPage = () => {
                 .from('attendance')
                 .select('*')
                 .eq('user_id', user!.id)
-                .order('checkin_time', { ascending: false })
+                .order('check_in_time', { ascending: false })
                 .limit(5);
 
             if (recentError) throw recentError;
@@ -156,7 +156,7 @@ export const CheckInPage = () => {
                                         {format(new Date(record.checkin_date), 'd MMM yyyy', { locale: it })}
                                     </span>
                                     <span className="text-gray-500 font-mono">
-                                        {format(new Date(record.checkin_time), 'HH:mm', { locale: it })}
+                                        {format(new Date(record.check_in_time), 'HH:mm', { locale: it })}
                                     </span>
                                 </div>
                             ))}
