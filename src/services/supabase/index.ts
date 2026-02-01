@@ -1282,12 +1282,27 @@ export class SupabaseRepository implements IRepository {
 
     attendance = {
         checkIn: async (userId: string): Promise<void> => {
+            // 0. Get user's studio_id
+            const { data: user, error: userError } = await supabase
+                .from('users')
+                .select('studio_id')
+                .eq('id', userId)
+                .single();
+
+            if (userError || !user?.studio_id) {
+                console.error('CheckIn failed: User has no studio_id', userError);
+                throw new Error('Impossibile recuperare lo studio dell\'utente');
+            }
+
             // 1. Register physical check-in (attendance table)
             // This table has a UNIQUE constraint on (user_id, checkin_date)
             // If it fails with code 23505, it means already checked in today.
             const { error: checkinError } = await supabase
                 .from('attendance')
-                .insert({ user_id: userId });
+                .insert({
+                    user_id: userId,
+                    studio_id: user.studio_id
+                });
 
             if (checkinError) {
                 // If unique violation, we can just return or throw specific error

@@ -515,7 +515,7 @@ export const AcademyPage: React.FC = () => {
                         </div>
                         <button
                             onClick={() => {
-                                alert('Storico ingressi:\n' + myCheckins.map(c => `${new Date(c.check_in_time).toLocaleDateString()} ${new Date(c.check_in_time).toLocaleTimeString()}`).join('\n'));
+                                if (user) handleOpenProfile(user);
                             }}
                             className="bg-bg-secondary hover:bg-bg-primary text-text-muted hover:text-text-primary px-3 py-1 rounded text-xs font-bold border border-border transition-colors ml-4"
                         >
