@@ -612,6 +612,11 @@ export class MockRepository implements IRepository {
         getAttendanceHistory: async (_userId: string): Promise<AttendanceRecord[]> => {
             // Mock empty attendance history
             return [];
+        },
+        performCheckIn: async (_courseId: string, _studentId: string): Promise<{ success: boolean; message: string }> => {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            // Simulate Check-in success
+            return { success: true, message: 'Check-in (MOCK) effettuato con successo!' };
         }
     };
 

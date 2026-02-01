@@ -12,7 +12,7 @@ export const CheckInPage = () => {
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [courses, setCourses] = useState<Course[]>([]);
-    const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+    const [_selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
     const [checkInStatus, setCheckInStatus] = useState<{ [courseId: string]: boolean }>({});
     const [error, setError] = useState<string | null>(null);
 

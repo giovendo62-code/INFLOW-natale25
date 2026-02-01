@@ -311,6 +311,7 @@ export interface IRepository {
     getInvitation(token: string): Promise<any>;
     acceptInvitation(token: string, userId: string, studioId: string, role: string): Promise<void>;
     updateMemberPermissions(studioId: string, userId: string, permissions: { can_view_clients?: boolean; can_view_others_financials?: boolean }): Promise<void>;
+    listStudioInvitations(studioId: string): Promise<StudioInvitation[]>;
   };
   consents: {
     getTemplate(studioId: string): Promise<ConsentTemplate | null>;

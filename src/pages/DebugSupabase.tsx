@@ -3,10 +3,10 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../features/auth/AuthContext';
 
 export const DebugSupabase: React.FC = () => {
-    const { user } = useAuth();
+    const { user: _user } = useAuth();
     const [logs, setLogs] = useState<string[]>([]);
     const [diagnostics, setDiagnostics] = useState<any>({});
-    const [loading, setLoading] = useState(true);
+    const [_loading, setLoading] = useState(true);
 
     const addLog = (msg: string) => setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - ${msg}`]);
 
