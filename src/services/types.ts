@@ -39,6 +39,17 @@ export interface User {
   };
 }
 
+export interface StudioInvitation {
+  id: string;
+  studio_id: string;
+  email: string;
+  role: UserRole;
+  token: string;
+  invited_by: string;
+  created_at: string;
+  used_at?: string;
+}
+
 export interface AuthSession {
   user: User | null;
   token: string | null;
@@ -277,6 +288,7 @@ export interface IRepository {
     getAttendanceHistory(userId: string): Promise<AttendanceRecord[]>;
     updateTerms(studioId: string, terms: string): Promise<void>;
     acceptTerms(userId: string, version: number): Promise<void>;
+    performCheckIn(courseId: string, studentId: string): Promise<{ success: boolean; message: string }>;
   };
   communications: {
     list(studioId: string): Promise<Communication[]>;

@@ -1,6 +1,6 @@
 import { supabase } from '../../lib/supabase';
 
-import type { IRepository, AuthSession, User, Appointment, Client, Transaction, FinancialStats, CourseMaterial, StudentAttendance, ClientConsent, ArtistContract, PresenceLog, MarketingCampaign, WaitlistEntry, Course, Communication, CommunicationReply, ConsentTemplate, CourseEnrollment, AttendanceLog, UserRole, Studio, AttendanceRecord } from '../types';
+import type { IRepository, AuthSession, User, Appointment, Client, Transaction, FinancialStats, CourseMaterial, StudentAttendance, ClientConsent, ArtistContract, PresenceLog, MarketingCampaign, WaitlistEntry, Course, Communication, CommunicationReply, ConsentTemplate, CourseEnrollment, AttendanceLog, UserRole, Studio, AttendanceRecord, StudioInvitation } from '../types';
 
 // Helper to identify the studio owner for Google Sync
 const getStudioOwnerId = async (studioId: string): Promise<string | null> => {
@@ -902,10 +902,24 @@ export class SupabaseRepository implements IRepository {
             }
 
             // 3. Fetch users by studio_id (orphans)
-            const { data: usersByStudio } = await supabase.from('users').select('*').eq('studio_id', studioId);
+            // Explicitly log potential RLS errors here
+            let usersByStudio: User[] = [];
+            const { data: orphanData, error: orphanError } = await supabase
+                .from('users')
+                .select('*')
+                .eq('studio_id', studioId);
+
+            if (orphanError) {
+                console.error('[DEBUG-RLS] Failed to fetch orphaned users (users.studio_id = studio_id). This is likely an RLS issue:', orphanError);
+            } else {
+                usersByStudio = orphanData || [];
+                if (usersByStudio.length > 0) {
+                    console.log(`[DEBUG] Found ${usersByStudio.length} orphaned users`);
+                }
+            }
 
             // Deduplicate
-            const rawUsers = [...usersById, ...(usersByStudio || [])];
+            const rawUsers = [...usersById, ...usersByStudio];
             const uniqueMap = new Map<string, User>();
             rawUsers.forEach(u => uniqueMap.set(u.id, u));
             const users = Array.from(uniqueMap.values());
@@ -932,6 +946,21 @@ export class SupabaseRepository implements IRepository {
             });
 
             return mergedUsers;
+        },
+
+        listStudioInvitations: async (studioId: string): Promise<StudioInvitation[]> => {
+            const { data, error } = await supabase
+                .from('studio_invitations')
+                .select('*')
+                .eq('studio_id', studioId)
+                .is('used_at', null) // Only show pending
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Error fetching invitations:', error);
+                throw error;
+            }
+            return data as StudioInvitation[];
         },
 
         inviteMember: async (email: string, role: UserRole, studioId: string): Promise<User> => {
@@ -1635,6 +1664,15 @@ export class SupabaseRepository implements IRepository {
                 academy_terms_accepted_version: version
             }).eq('id', userId);
             if (error) throw error;
+        },
+        performCheckIn: async (courseId: string, studentId: string): Promise<{ success: boolean; message: string }> => {
+            const { data, error } = await supabase.rpc('perform_academy_checkin', {
+                p_course_id: courseId,
+                p_student_id: studentId
+            });
+
+            if (error) throw error;
+            return data as { success: boolean; message: string };
         }
     };
 

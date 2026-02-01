@@ -810,6 +810,19 @@ export class MockRepository implements IRepository {
             await new Promise(resolve => setTimeout(resolve, 300));
             // No-op for mock
             console.log('[MOCK] updateMemberPermissions', { _studioId, _userId, _permissions });
+        },
+        listStudioInvitations: async (studioId: string): Promise<any[]> => {
+            await new Promise(resolve => setTimeout(resolve, 300));
+            const invites = JSON.parse(localStorage.getItem('inkflow_mock_invites') || '[]');
+            return invites.filter((i: any) => i.studioId === studioId && !i.usedAt).map((i: any) => ({
+                id: `inv-${i.token.substring(0, 8)}`,
+                studio_id: i.studioId,
+                email: i.email,
+                role: i.role,
+                token: i.token,
+                invited_by: i.invitedBy,
+                created_at: new Date().toISOString()
+            }));
         }
     };
 

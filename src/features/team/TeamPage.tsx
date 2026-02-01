@@ -163,6 +163,9 @@ export const TeamPage: React.FC = () => {
                 )}
             </div>
 
+            {/* Pending Invitations */}
+            <PendingInvitationsList studioId={user?.studio_id} />
+
             {/* Active Members List */}
             <div className="mt-8 bg-bg-secondary p-8 rounded-xl border border-border">
                 <h2 className="text-xl font-bold mb-6">Membri del Team</h2>
@@ -255,8 +258,8 @@ const TeamList: React.FC<{ studioId?: string }> = ({ studioId }) => {
                                 <button
                                     onClick={() => handlePermissionUpdate(member.id, 'can_view_clients', member.permissions?.can_view_clients ?? true)}
                                     className={`p-2 rounded-md transition-all flex items-center gap-2 text-xs font-medium ${(member.permissions?.can_view_clients ?? true)
-                                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                                            : 'bg-white/5 text-text-muted hover:text-text-primary'
+                                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                        : 'bg-white/5 text-text-muted hover:text-text-primary'
                                         }`}
                                     title={(member.permissions?.can_view_clients ?? true) ? "Può vedere la lista Clienti" : "NON può vedere la lista Clienti"}
                                 >
@@ -268,8 +271,8 @@ const TeamList: React.FC<{ studioId?: string }> = ({ studioId }) => {
                                 <button
                                     onClick={() => handlePermissionUpdate(member.id, 'can_view_others_financials', member.permissions?.can_view_others_financials ?? false)}
                                     className={`p-2 rounded-md transition-all flex items-center gap-2 text-xs font-medium ${member.permissions?.can_view_others_financials
-                                            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                                            : 'bg-white/5 text-text-muted hover:text-text-primary'
+                                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                                        : 'bg-white/5 text-text-muted hover:text-text-primary'
                                         }`}
                                     title={member.permissions?.can_view_others_financials ? "Può vedere finanze altrui" : "NON può vedere finanze altrui"}
                                 >
@@ -297,6 +300,63 @@ const TeamList: React.FC<{ studioId?: string }> = ({ studioId }) => {
                     </div>
                 </div>
             ))}
+        </div>
+    );
+};
+
+const PendingInvitationsList: React.FC<{ studioId?: string }> = ({ studioId }) => {
+    const [invitations, setInvitations] = useState<import('../../services/types').StudioInvitation[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    React.useEffect(() => {
+        if (!studioId) return;
+        const load = async () => {
+            try {
+                const data = await api.settings.listStudioInvitations(studioId);
+                setInvitations(data as any);
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setLoading(false);
+            }
+        };
+        load();
+    }, [studioId]);
+
+    const copyLink = (token: string) => {
+        const link = `${window.location.origin}/accept-invite?token=${token}`;
+        navigator.clipboard.writeText(link);
+        alert('Link copiato!');
+    };
+
+    if (loading) return null;
+    if (invitations.length === 0) return null;
+
+    return (
+        <div className="mb-8 bg-bg-secondary p-8 rounded-xl border border-dashed border-accent/30">
+            <h2 className="text-xl font-bold mb-4 flex items-center gap-2 text-accent">
+                <Mail size={20} /> Inviti in Attesa
+            </h2>
+            <div className="space-y-3">
+                {invitations.map((invite) => (
+                    <div key={invite.id} className="flex flex-col md:flex-row md:items-center justify-between p-4 bg-bg-tertiary rounded-lg border border-border gap-4">
+                        <div>
+                            <div className="font-bold text-text-primary">{invite.email}</div>
+                            <div className="text-sm text-text-muted flex gap-2">
+                                <span>Ruolo: {invite.role}</span>
+                                <span>•</span>
+                                <span>Inviato il: {new Date(invite.created_at).toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => copyLink(invite.token)}
+                            className="px-3 py-1.5 bg-accent/10 hover:bg-accent/20 text-accent rounded text-sm font-medium transition-colors flex items-center gap-2"
+                        >
+                            <Copy size={14} /> Copia Link
+                        </button>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 };

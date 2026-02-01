@@ -1,94 +1,126 @@
-
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../features/auth/AuthContext';
 
-export const DebugSupabase = () => {
-    const [status, setStatus] = useState<string>('Connecting...');
-    const [details, setDetails] = useState<string>('');
+export const DebugSupabase: React.FC = () => {
+    const { user } = useAuth();
     const [logs, setLogs] = useState<string[]>([]);
-    const [channelStatus, setChannelStatus] = useState<string>('Idle');
+    const [diagnostics, setDiagnostics] = useState<any>({});
+    const [loading, setLoading] = useState(true);
 
-    // Use AuthContext to see what the app actually sees (hydrated user)
-    const { user, isLoading } = useAuth();
+    const addLog = (msg: string) => setLogs(prev => [...prev, `${new Date().toLocaleTimeString()} - ${msg}`]);
 
     useEffect(() => {
-        if (!isLoading) {
-            if (user) {
-                setStatus('Connected');
-                const details = `User: ${user.email}\nStudio ID: ${user.studio_id || 'Missing'}\nRole: ${user.role}`;
-                setDetails(`AuthContext State:\n${details}`);
-            } else {
-                setStatus('Not Authenticated');
-                setDetails('User is not logged in via AuthContext');
+        const runDiagnostics = async () => {
+            setLoading(true);
+            addLog('Starting Diagnostics...');
+
+            try {
+                // 1. Check Session
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                addLog(`Session Check: ${session ? 'Active' : 'No Session'} (${session?.user?.email})`);
+                if (sessionError) addLog(`Session Error: ${sessionError.message}`);
+
+                const authId = session?.user?.id;
+                setDiagnostics(prev => ({ ...prev, session: session }));
+
+                if (authId) {
+                    // 2. Try to read OWN user record
+                    addLog(`Attempting to fetch user record for ${authId}...`);
+                    const { data: userRecord, error: userError } = await supabase
+                        .from('users')
+                        .select('*')
+                        .eq('id', authId)
+                        .single();
+
+                    if (userError) {
+                        addLog(`RLS BLOCKED READ (users): ${userError.message} (${userError.code})`);
+                        setDiagnostics(prev => ({ ...prev, userError }));
+                    } else {
+                        addLog('SUCCESS: Could read own user record.');
+                        setDiagnostics(prev => ({ ...prev, userRecord }));
+                    }
+
+                    // 3. Try to update OWN user record
+                    addLog('Attempting dry-run update of own record...');
+                    const { error: updateError } = await supabase
+                        .from('users')
+                        .update({ full_name: userRecord?.full_name || session.user.email }) // No-change update
+                        .eq('id', authId);
+
+                    if (updateError) {
+                        addLog(`RLS BLOCKED UPDATE (users): ${updateError.message} (${updateError.code})`);
+                    } else {
+                        addLog('SUCCESS: Could update own user record (Permissions OK).');
+                    }
+
+                    // 4. Check Memberships
+                    addLog('Fetching memberships...');
+                    const { data: memberships, error: memError } = await supabase
+                        .from('studio_memberships')
+                        .select('*')
+                        .eq('user_id', authId);
+
+                    if (memError) {
+                        addLog(`Error fetching memberships: ${memError.message}`);
+                    } else {
+                        addLog(`Found ${memberships?.length || 0} memberships.`);
+                        setDiagnostics(prev => ({ ...prev, memberships }));
+                    }
+
+                    // 5. Check Studio Invitations (if owner)
+                    const { data: invites, error: invError } = await supabase.from('studio_invitations').select('*');
+                    if (invError) {
+                        addLog(`Cannot read invitations: ${invError.message} (Expected if not owner/admin)`);
+                    } else {
+                        addLog(`Visible invitations: ${invites?.length || 0}`);
+                    }
+
+                } else {
+                    addLog('SKIPPING Database checks: No Authenticated User.');
+                }
+
+            } catch (err: any) {
+                addLog(`CRITICAL EXCEPTION: ${err.message}`);
+            } finally {
+                setLoading(false);
+                addLog('Diagnostics Complete.');
             }
-        }
-    }, [user, isLoading]);
+        };
 
-    useEffect(() => {
-        // Debug Realtime Listener
-        const channel = supabase.channel('debug-room')
-            .on('postgres_changes', { event: '*', schema: 'public' }, (payload) => {
-                const msg = `[${new Date().toLocaleTimeString()}] Event: ${payload.eventType} on ${payload.table}`;
-                setLogs(prev => [msg, ...prev].slice(0, 20));
-                console.log('Debug Realtime Payload:', payload);
-            })
-            .subscribe((status) => {
-                setChannelStatus(status);
-                setLogs(prev => [`[${new Date().toLocaleTimeString()}] Status: ${status}`, ...prev]);
-            });
-
-        return () => {
-            supabase.removeChannel(channel);
-        }
+        runDiagnostics();
     }, []);
 
     return (
-        <div style={{ padding: '20px', fontFamily: 'monospace', maxWidth: '800px', margin: '0 auto' }}>
-            <h1>Supabase Debugger</h1>
+        <div className="p-8 max-w-4xl mx-auto bg-white text-black font-mono text-sm">
+            <h1 className="text-2xl font-bold mb-4">Supabase RLS Diagnostics</h1>
 
-            <div className="grid gap-4">
-                <div style={{
-                    padding: '15px',
-                    border: '1px solid #ccc',
-                    borderRadius: '8px',
-                    background: status === 'Connected' ? '#f0fdf4' : '#fef2f2',
-                    color: status === 'Connected' ? '#15803d' : '#b91c1c'
-                }}>
-                    <h3>Auth Connection</h3>
-                    <div className="font-bold">{status}</div>
-                    <pre style={{ marginTop: '10px', fontSize: '12px' }}>{details}</pre>
-                </div>
+            <div className="mb-6 p-4 bg-gray-100 rounded border">
+                <h2 className="font-bold mb-2">Instructions</h2>
+                <p>1. If you see "RLS BLOCKED" errors, the database policies are definitely broken.</p>
+                <p>2. Please screenshot this page or copy the logs below.</p>
+            </div>
 
-                <div style={{
-                    padding: '15px',
-                    border: '1px solid #ccc',
-                    borderRadius: '8px',
-                    background: '#f8fafc'
-                }}>
-                    <h3>Realtime Status: <span style={{ color: channelStatus === 'SUBSCRIBED' ? '#15803d' : '#ca8a04' }}>{channelStatus}</span></h3>
-                    <p style={{ fontSize: '12px', color: '#666' }}>Listing global postgres_changes (Public Schema)</p>
-
-                    <div style={{
-                        marginTop: '10px',
-                        height: '300px',
-                        overflowY: 'auto',
-                        background: '#1e293b',
-                        color: '#4ade80',
-                        padding: '10px',
-                        borderRadius: '4px',
-                        fontSize: '12px'
-                    }}>
-                        {logs.length === 0 && <div style={{ color: '#94a3b8' }}>Waiting for events...</div>}
-                        {logs.map((log, i) => (
-                            <div key={i} style={{ borderBottom: '1px solid #334155', padding: '4px 0' }}>{log}</div>
-                        ))}
-                    </div>
+            <div className="mb-6">
+                <h2 className="font-bold mb-2">Logs</h2>
+                <div className="bg-black text-green-400 p-4 rounded h-64 overflow-y-auto whitespace-pre-wrap">
+                    {logs.join('\n')}
                 </div>
             </div>
 
-            <div style={{ marginTop: '20px', fontSize: '12px', color: '#666' }}>
-                <p>Instructions: Keep this page open. Initialize an action (create appt/client) in another tab/device. Check if log appears here.</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 border rounded">
+                    <h3 className="font-bold border-b mb-2">Session Data</h3>
+                    <pre className="overflow-auto max-h-40">{JSON.stringify(diagnostics.session?.user, null, 2)}</pre>
+                </div>
+                <div className="p-4 border rounded">
+                    <h3 className="font-bold border-b mb-2">Database Record</h3>
+                    <pre className="overflow-auto max-h-40">{JSON.stringify(diagnostics.userRecord, null, 2)}</pre>
+                </div>
+                <div className="p-4 border rounded">
+                    <h3 className="font-bold border-b mb-2">Memberships</h3>
+                    <pre className="overflow-auto max-h-40">{JSON.stringify(diagnostics.memberships, null, 2)}</pre>
+                </div>
             </div>
         </div>
     );
