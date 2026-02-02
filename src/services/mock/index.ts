@@ -620,15 +620,18 @@ export class MockRepository implements IRepository {
             return [];
         },
         // NEW: Specific for students
+        // NEW: Specific for students
         getStudentAttendanceHistory: async (studentId: string): Promise<AttendanceRecord[]> => {
             await new Promise(resolve => setTimeout(resolve, 400));
             // Return dummy data
             return MOCK_ATTENDANCE_LOGS
-                .filter(l => l.student_id === studentId && l.action === 'CHECKIN_QR')
+                .filter(l => l.student_id === studentId && (l.action as any) === 'CHECKIN_QR')
                 .map(l => ({
                     id: l.id,
+                    user_id: l.student_id, // Compulsory field
                     student_id: l.student_id,
                     course_id: l.course_id,
+                    created_at: l.created_at, // Compulsory field
                     check_in_time: l.created_at,
                     method: 'MANUAL',
                     confidence: 'HIGH'
