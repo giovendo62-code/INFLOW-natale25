@@ -211,6 +211,8 @@ export interface AttendanceLog {
 }
 
 export interface CourseEnrollment {
+  id?: string; // Added for UI compatibility
+  studio_id?: string; // RLS optimization
   course_id: string;
   student_id: string;
   allowed_days: number;

@@ -51,7 +51,7 @@ export const AcademyPage: React.FC = () => {
     const [profileStudent, setProfileStudent] = useState<User | null>(null);
     const [profileEnrollments, setProfileEnrollments] = useState<Record<string, CourseEnrollment>>({});
     const [loadingProfile, setLoadingProfile] = useState(false);
-    const [myCheckins, setMyCheckins] = useState<AttendanceRecord[]>([]);
+    const [myCheckins, _setMyCheckins] = useState<AttendanceRecord[]>([]);
 
     // Quick Attendance State
     const [courseEnrollments, setCourseEnrollments] = useState<Record<string, CourseEnrollment>>({}); // Map studentId -> Enrollment

@@ -619,6 +619,25 @@ export class MockRepository implements IRepository {
             // Mock empty attendance history
             return [];
         },
+        // NEW: Specific for students
+        getStudentAttendanceHistory: async (studentId: string): Promise<AttendanceRecord[]> => {
+            await new Promise(resolve => setTimeout(resolve, 400));
+            // Return dummy data
+            return MOCK_ATTENDANCE_LOGS
+                .filter(l => l.student_id === studentId && l.action === 'CHECKIN_QR')
+                .map(l => ({
+                    id: l.id,
+                    student_id: l.student_id,
+                    course_id: l.course_id,
+                    check_in_time: l.created_at,
+                    method: 'MANUAL',
+                    confidence: 'HIGH'
+                }));
+        },
+        deleteStudentAttendance: async (_id: string): Promise<void> => {
+            await new Promise(resolve => setTimeout(resolve, 300));
+            // No-op mock
+        },
         performCheckIn: async (_courseId: string, _studentId: string): Promise<{ success: boolean; message: string }> => {
             await new Promise(resolve => setTimeout(resolve, 500));
             // Simulate Check-in success
