@@ -8,13 +8,15 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-    v_enrollment public.academy_enrollments%ROWTYPE;
+    v_enrollment RECORD;
     v_existing_att public.academy_daily_attendance%ROWTYPE;
 BEGIN
     -- A. Validate Enrollment
-    SELECT * INTO v_enrollment
-    FROM public.academy_enrollments
-    WHERE course_id = p_course_id AND student_id = p_student_id;
+    SELECT e.*, c.studio_id 
+    INTO v_enrollment
+    FROM public.academy_enrollments e
+    JOIN public.academy_courses c ON e.course_id = c.id
+    WHERE e.course_id = p_course_id AND e.student_id = p_student_id;
 
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Studente non iscritto a questo corso';
@@ -60,8 +62,8 @@ BEGIN
 
     -- CASE 3: New Check-in
     -- C. Insert Daily Attendance
-    INSERT INTO public.academy_daily_attendance (course_id, student_id, date, status)
-    VALUES (p_course_id, p_student_id, CURRENT_DATE, 'PRESENT');
+    INSERT INTO public.academy_daily_attendance (course_id, student_id, date, status, studio_id)
+    VALUES (p_course_id, p_student_id, CURRENT_DATE, 'PRESENT', v_enrollment.studio_id);
 
     -- D. Update Enrollment Counter
     UPDATE public.academy_enrollments

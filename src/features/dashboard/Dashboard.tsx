@@ -461,7 +461,7 @@ export const Dashboard: React.FC = () => {
         <div className="h-full overflow-y-auto overflow-x-hidden p-4 md:p-8 pt-20 md:pt-8 text-text-primary">
             <div className="max-w-7xl mx-auto">
                 <header className="mb-8 flex justify-between items-start">
-                    <div>
+                    <div className="min-w-0 flex-1 mr-2">
                         <h1 className="text-2xl md:text-3xl font-bold text-text-primary mb-2 truncate">
                             {studio?.name || 'InkFlow CRM'}
                         </h1>
@@ -469,7 +469,7 @@ export const Dashboard: React.FC = () => {
                             Bentornato, <span className="text-text-primary font-medium">{user?.full_name || user?.email?.split('@')[0] || 'User'}</span>
                         </p>
                     </div>
-                    <div className="flex gap-2 md:hidden">
+                    <div className="flex gap-2 md:hidden shrink-0">
                         <button
                             onClick={() => setIsShareOpen(true)}
                             className="p-2 bg-bg-secondary border border-border rounded-full text-text-muted hover:text-text-primary transition-colors"

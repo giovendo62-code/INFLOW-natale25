@@ -10,7 +10,7 @@ import { DragDropUpload } from '../../components/DragDropUpload';
 import { useNavigate } from 'react-router-dom';
 
 export const AcademyPage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, isLoading: authLoading } = useAuth(); // Destructure authLoading
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -18,21 +18,13 @@ export const AcademyPage: React.FC = () => {
             navigate('/', { replace: true });
         }
     }, [user, navigate]);
-    const [courses, setCourses] = useState<Course[]>([]);
-    const [allUsers, setAllUsers] = useState<User[]>([]); // Store all team members for lookup
-    const [students, setStudents] = useState<User[]>([]); // Store only students for lists
 
-    // Redirect Students to Dashboard (Defense in Depth)
-    useEffect(() => {
-        if (user?.role?.toLowerCase() === 'student') {
-            // Use window.location for hard redirect or useNavigate for soft
-            // Since we are inside a component, useNavigate is better but let's assume we can't easily hook it if not top level?
-            // Wait, this is a page component.
-            // We need 'useNavigate'.
-            // I'll grab it.
-        }
-    }, [user]);
-    const [loading, setLoading] = useState(true);
+    const [courses, setCourses] = useState<Course[]>([]);
+    const [allUsers, setAllUsers] = useState<User[]>([]);
+    const [students, setStudents] = useState<User[]>([]);
+    const [loadingCourses, setLoadingCourses] = useState(true); // Specific loading state
+    const [loadingStudents, setLoadingStudents] = useState(true); // Specific loading state
+
     const [view, setView] = useState<'LIST' | 'CREATE' | 'MANAGE' | 'STUDENTS_LIST'>('LIST');
     const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
 
@@ -54,7 +46,6 @@ export const AcademyPage: React.FC = () => {
     const [studentEnrollment, setStudentEnrollment] = useState<CourseEnrollment | null>(null);
     const [_attendanceLogs, setAttendanceLogs] = useState<AttendanceLog[]>([]);
     const [loadingEnrollment, setLoadingEnrollment] = useState(false);
-    // const [attendanceDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
     // Student Profile Modal State
     const [profileStudent, setProfileStudent] = useState<User | null>(null);
@@ -81,70 +72,44 @@ export const AcademyPage: React.FC = () => {
     const [savingTerms, setSavingTerms] = useState(false);
 
     useEffect(() => {
-        loadData();
-    }, [user?.studio_id]);
+        // Only load if user is ready and has studio
+        if (!authLoading && user?.studio_id) {
+            loadCourses();
+            loadStudents();
+        }
+    }, [user?.studio_id, authLoading]);
 
-    useEffect(() => {
-        const loadEnrollments = async () => {
-            if (view === 'MANAGE' && (activeTab === 'ATTENDANCE' || activeTab === 'STUDENTS') && selectedCourse?.id) {
-                setLoadingCourseEnrollments(true);
-                try {
-                    const studentIds = selectedCourse.student_ids || [];
-                    const map: Record<string, CourseEnrollment> = {};
-                    await Promise.all(studentIds.map(async (sid) => {
-                        try {
-                            const enroll = await api.academy.getEnrollment(selectedCourse.id, sid);
-                            if (enroll) map[sid] = enroll;
-                        } catch (e) { console.error(e); }
-                    }));
-                    setCourseEnrollments(map);
-                } catch (e) {
-                    console.error(e);
-                } finally {
-                    setLoadingCourseEnrollments(false);
-                }
-            }
-        };
-        loadEnrollments();
-    }, [view, activeTab, selectedCourse?.id]);
-
-    const loadData = async () => {
+    const loadCourses = async () => {
         if (!user?.studio_id) return;
-        setLoading(true);
+        setLoadingCourses(true);
         try {
-            const [coursesData, teamData] = await Promise.all([
-                api.academy.listCourses(user.studio_id),
-                api.settings.listTeamMembers(user.studio_id)
-            ]);
-            setCourses(coursesData);
+            const data = await api.academy.listCourses(user.studio_id);
+            setCourses(data);
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setLoadingCourses(false);
+        }
+    };
+
+    const loadStudents = async () => {
+        if (!user?.studio_id) return;
+        setLoadingStudents(true);
+        try {
+            const teamData = await api.settings.listTeamMembers(user.studio_id);
             setAllUsers(teamData);
-            // Filter only students from team members
             const studentUsers = teamData.filter(u => (u.role || '').toLowerCase() === 'student');
             setStudents(studentUsers);
-            setStudents(studentUsers);
-
-            // Load terms if owner
-            if (user?.role === 'owner' || user?.role === 'manager') {
-                const studio = await api.settings.getStudio(user.studio_id);
-                if (studio && studio.academy_terms) {
-                    setTermsText(studio.academy_terms);
-                }
-            }
-
-            // Load own attendance if student
-            if (user?.role === 'student') {
-                try {
-                    const history = await api.academy.getAttendanceHistory(user.id);
-                    setMyCheckins(history);
-                } catch (e) {
-                    console.error('Failed to load attendance history', e);
-                }
-            }
-        } catch (err) {
-            console.error(err);
+        } catch (error) {
+            console.error(error);
         } finally {
-            setLoading(false);
+            setLoadingStudents(false);
         }
+    };
+
+    const loadData = async () => {
+        // Wrapper for legacy calls if any, or manual refresh
+        await Promise.all([loadCourses(), loadStudents()]);
     };
 
     const handleCreateCourse = async (e: React.FormEvent) => {
@@ -515,6 +480,52 @@ export const AcademyPage: React.FC = () => {
         }
     };
 
+    useEffect(() => {
+        const loadEnrollments = async () => {
+            if (view === 'MANAGE' && (activeTab === 'ATTENDANCE' || activeTab === 'STUDENTS') && selectedCourse?.id) {
+                setLoadingCourseEnrollments(true);
+                try {
+                    const studentIds = selectedCourse.student_ids || [];
+                    const map: Record<string, CourseEnrollment> = {};
+                    await Promise.all(studentIds.map(async (sid) => {
+                        try {
+                            const enroll = await api.academy.getEnrollment(selectedCourse.id, sid);
+                            console.log(`[DEBUG] Enrollment for ${sid}:`, enroll);
+                            if (enroll) {
+                                map[sid] = enroll;
+                            } else {
+                                // Fallback empty enrollment
+                                map[sid] = {
+                                    id: 'temp-' + sid,
+                                    course_id: selectedCourse.id,
+                                    student_id: sid,
+                                    enrolled_at: new Date().toISOString(),
+                                    status: 'active',
+                                    allowed_days: 0,
+                                    attended_days: 0,
+                                    total_cost: 0
+                                };
+                            }
+                        } catch (e) {
+                            console.error(e);
+                            map[sid] = {
+                                userId: sid, // Hack type
+                                allowed_days: 0,
+                                attended_days: 0
+                            } as any;
+                        }
+                    }));
+                    setCourseEnrollments(map);
+                } catch (e) {
+                    console.error(e);
+                } finally {
+                    setLoadingCourseEnrollments(false);
+                }
+            }
+        };
+        loadEnrollments();
+    }, [view, activeTab, selectedCourse?.id, selectedCourse?.student_ids]);
+
     return (
         <div className="w-full p-4 md:p-8 space-y-8 flex flex-col">
             {/* Header */}
@@ -561,11 +572,11 @@ export const AcademyPage: React.FC = () => {
                             </button>
 
                             <button
-                                onClick={() => setIsTermsModalOpen(true)}
+                                onClick={() => loadData()}
                                 className="px-4 py-2 rounded-lg font-bold transition-colors bg-bg-tertiary text-text-muted hover:text-text-primary flex items-center gap-2"
+                                title="Ricarica Dati"
                             >
-                                <FileText size={18} />
-                                <span className="hidden lg:inline">Termini</span>
+                                <RefreshCw size={18} />
                             </button>
 
                             {view === 'LIST' && (
@@ -594,100 +605,107 @@ export const AcademyPage: React.FC = () => {
             <div className="flex-1 overflow-y-auto">
                 {view === 'STUDENTS_LIST' ? (
                     <div className="space-y-6">
-                        <div className="bg-bg-secondary p-6 rounded-xl border border-border">
-                            <h2 className="text-xl font-bold text-text-primary mb-4 flex items-center gap-2">
-                                <Users size={24} className="text-accent" />
-                                Studenti Connessi ({students.length})
-                            </h2>
-                            <p className="text-text-muted mb-6">
-                                Elenco degli studenti che hanno accettato l'invito e si sono registrati alla piattaforma.
-                            </p>
+                        {loadingStudents ? (
+                            <div className="text-center py-8 text-text-muted animate-pulse">Caricamento studenti...</div>
+                        ) : (
+                            <div className="bg-bg-secondary p-6 rounded-xl border border-border">
+                                <h2 className="text-xl font-bold text-text-primary mb-4 flex items-center gap-2">
+                                    <Users size={24} className="text-accent" />
+                                    Studenti Connessi ({students.length})
+                                </h2>
+                                <p className="text-text-muted mb-6">
+                                    Elenco degli studenti che hanno accettato l'invito e si sono registrati alla piattaforma.
+                                </p>
 
-                            {/* Mobile Card View */}
-                            <div className="md:hidden space-y-4">
-                                {students.length === 0 ? (
-                                    <div className="text-center py-8 text-text-muted italic bg-bg-tertiary/20 rounded-lg">
-                                        Nessuno studente connesso al momento.
-                                    </div>
-                                ) : (
-                                    students.map((student) => (
-                                        <div key={student.id} className="bg-bg-tertiary p-4 rounded-lg border border-border flex flex-col gap-3">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent text-sm font-bold">
-                                                    {student.full_name?.substring(0, 2).toUpperCase() || 'ST'}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-text-primary font-bold truncate">{student.full_name || 'N/A'}</p>
-                                                    <p className="text-sm text-text-secondary truncate">{student.email}</p>
-                                                </div>
-                                                <span className="text-xs px-2 py-1 rounded bg-white/5 text-text-muted uppercase">
-                                                    {student.role.toLowerCase()}
-                                                </span>
-                                            </div>
-                                            <button
-                                                className="w-full text-text-primary hover:bg-bg-primary px-3 py-2 bg-bg-secondary rounded text-sm border border-border font-bold flex items-center justify-center gap-2 transition-colors"
-                                                onClick={() => handleOpenProfile(student)}
-                                            >
-                                                Vedi Scheda
-                                            </button>
+                                {/* Mobile Card View */}
+                                <div className="md:hidden space-y-4">
+                                    {students.length === 0 ? (
+                                        <div className="text-center py-8 text-text-muted italic bg-bg-tertiary/20 rounded-lg">
+                                            Nessuno studente connesso al momento.
                                         </div>
-                                    ))
-                                )}
-                            </div>
-
-                            {/* Desktop Table View */}
-                            <div className="hidden md:block overflow-x-auto">
-                                <table className="w-full text-left">
-                                    <thead>
-                                        <tr className="border-b border-border text-text-secondary text-sm">
-                                            <th className="py-3 px-4 font-medium">Nome</th>
-                                            <th className="py-3 px-4 font-medium">Email</th>
-                                            <th className="py-3 px-4 font-medium">Ruolo</th>
-                                            <th className="py-3 px-4 font-medium">Azioni</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-border">
-                                        {students.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={4} className="py-8 text-center text-text-muted italic">
-                                                    Nessuno studente connesso al momento.
-                                                </td>
-                                            </tr>
-                                        ) : (
-                                            students.map((student) => (
-                                                <tr key={student.id} className="hover:bg-bg-tertiary/50 transition-colors">
-                                                    <td className="py-3 px-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent text-xs font-bold">
-                                                                {student.full_name?.substring(0, 2).toUpperCase() || 'ST'}
-                                                            </div>
-                                                            <span className="text-text-primary font-medium">{student.full_name || 'N/A'}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="py-3 px-4 text-text-secondary">{student.email}</td>
-                                                    <td className="py-3 px-4 text-text-muted text-sm capitalize">
+                                    ) : (
+                                        students.map((student) => (
+                                            <div key={student.id} className="bg-bg-tertiary p-4 rounded-lg border border-border flex flex-col gap-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center text-accent text-sm font-bold">
+                                                        {student.full_name?.substring(0, 2).toUpperCase() || 'ST'}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-text-primary font-bold truncate">{student.full_name || 'N/A'}</p>
+                                                        <p className="text-sm text-text-secondary truncate">{student.email}</p>
+                                                    </div>
+                                                    <span className="text-xs px-2 py-1 rounded bg-white/5 text-text-muted uppercase">
                                                         {student.role.toLowerCase()}
-                                                    </td>
-                                                    <td className="py-3 px-4">
-                                                        <button
-                                                            className="text-text-primary hover:bg-bg-primary px-3 py-1 bg-bg-secondary rounded text-xs border border-border font-bold flex items-center gap-1 transition-colors"
-                                                            onClick={() => handleOpenProfile(student)}
-                                                        >
-                                                            Vedi Scheda
-                                                        </button>
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    className="w-full text-text-primary hover:bg-bg-primary px-3 py-2 bg-bg-secondary rounded text-sm border border-border font-bold flex items-center justify-center gap-2 transition-colors"
+                                                    onClick={() => handleOpenProfile(student)}
+                                                >
+                                                    Vedi Scheda
+                                                </button>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                {/* Desktop Table View */}
+                                <div className="hidden md:block overflow-x-auto">
+                                    <table className="w-full text-left">
+                                        <thead>
+                                            <tr className="border-b border-border text-text-secondary text-sm">
+                                                <th className="py-3 px-4 font-medium">Nome</th>
+                                                <th className="py-3 px-4 font-medium">Email</th>
+                                                <th className="py-3 px-4 font-medium">Ruolo</th>
+                                                <th className="py-3 px-4 font-medium">Azioni</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-border">
+                                            {students.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={4} className="py-8 text-center text-text-muted italic">
+                                                        Nessuno studente connesso al momento.
                                                     </td>
                                                 </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
+                                            ) : (
+                                                students.map((student) => (
+                                                    <tr key={student.id} className="hover:bg-bg-tertiary/50 transition-colors">
+                                                        <td className="py-3 px-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent text-xs font-bold">
+                                                                    {student.full_name?.substring(0, 2).toUpperCase() || 'ST'}
+                                                                </div>
+                                                                <span className="text-text-primary font-medium">{student.full_name || 'N/A'}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-text-secondary">{student.email}</td>
+                                                        <td className="py-3 px-4 text-text-muted text-sm capitalize">
+                                                            {student.role.toLowerCase()}
+                                                        </td>
+                                                        <td className="py-3 px-4">
+                                                            <button
+                                                                className="text-text-primary hover:bg-bg-primary px-3 py-1 bg-bg-secondary rounded text-xs border border-border font-bold flex items-center gap-1 transition-colors"
+                                                                onClick={() => handleOpenProfile(student)}
+                                                            >
+                                                                Vedi Scheda
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 ) : view === 'LIST' ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {loading ? (
-                            <div className="col-span-full text-center text-text-muted py-12">Caricamento corsi...</div>
+                        {loadingCourses ? (
+                            <div className="col-span-full text-center text-text-muted py-12 animate-pulse">
+                                <div className="inline-block w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin mb-2"></div>
+                                <p>Caricamento corsi...</p>
+                            </div>
                         ) : courses.map(course => (
                             <div key={course.id} className="bg-bg-secondary border border-border rounded-xl overflow-hidden hover:border-accent/50 transition-all group flex flex-col">
                                 <div className="p-6 flex-1">

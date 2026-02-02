@@ -291,6 +291,8 @@ export interface IRepository {
     updateTerms(studioId: string, terms: string): Promise<void>;
     acceptTerms(userId: string, version: number): Promise<void>;
     performCheckIn(courseId: string, studentId: string): Promise<{ success: boolean; message: string }>;
+    getStudentAttendanceHistory(studentId: string): Promise<any[]>;
+    deleteStudentAttendance(id: string): Promise<void>;
   };
   communications: {
     list(studioId: string): Promise<Communication[]>;

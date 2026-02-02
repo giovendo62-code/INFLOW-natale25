@@ -1655,7 +1655,36 @@ export class SupabaseRepository implements IRepository {
                 .eq('user_id', userId)
                 .order('created_at', { ascending: false });
             if (error) throw error;
-            return data as AttendanceRecord[];
+            // Map DB field checkin_time -> Type field check_in_time if needed
+            return (data || []).map((record: any) => ({
+                ...record,
+                check_in_time: record.checkin_time || record.check_in_time || record.created_at, // Fallback chain
+                studio_id: record.studio_id // Ensure studio_id is passed if needed
+            })) as AttendanceRecord[];
+        },
+        getStudentAttendanceHistory: async (studentId: string): Promise<any[]> => {
+            const { data, error } = await supabase
+                .from('academy_daily_attendance')
+                .select('*')
+                .eq('student_id', studentId)
+                .order('date', { ascending: false });
+
+            if (error) throw error;
+            console.log('[DEBUG] getStudentAttendanceHistory Raw Data:', data);
+            // Map to match AttendanceRecord interface expected by UI
+            return (data || []).map(d => ({
+                ...d,
+                id: d.id, // Explicitly ensure ID is compliant
+                check_in_time: d.created_at || new Date(d.date).toISOString(),
+                method: 'QR Academy'
+            }));
+        },
+        deleteStudentAttendance: async (id: string): Promise<void> => {
+            const { error } = await supabase
+                .from('academy_daily_attendance')
+                .delete()
+                .eq('id', id);
+            if (error) throw error;
         },
         updateTerms: async (studioId: string, terms: string): Promise<void> => {
             // Fallback if RPC doesn't exist (using 2-step for safety if migration fail, but better use direct update if simple)

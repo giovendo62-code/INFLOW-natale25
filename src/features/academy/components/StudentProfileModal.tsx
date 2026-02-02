@@ -1,8 +1,9 @@
 import React from 'react';
-import { X, BookOpen, Clock, DollarSign, RefreshCw as RefreshingCw } from 'lucide-react';
+import { X, BookOpen, Clock, DollarSign, RefreshCw as RefreshingCw, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
 import type { User, Course, CourseEnrollment, AttendanceRecord } from '../../../services/types';
 import { api } from '../../../services/api';
+import { supabase } from '../../../lib/supabase';
 
 interface StudentProfileModalProps {
     student: User;
@@ -39,7 +40,7 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({ studen
             });
 
             // Load Checkins
-            api.academy.getAttendanceHistory(student.id)
+            api.academy.getStudentAttendanceHistory(student.id)
                 .then(setCheckins)
                 .catch(e => console.error(e));
         }
@@ -118,31 +119,71 @@ export const StudentProfileModal: React.FC<StudentProfileModalProps> = ({ studen
                                 <Clock size={20} className="text-accent" /> Storico Ingressi Check-in
                             </h3>
                             {checkins.length === 0 ? (
-                                <div className="text-center py-8 text-text-muted italic bg-bg-tertiary/20 rounded-lg">
-                                    Nessun ingresso registrato.
+                                <div className="text-center py-8 text-text-muted italic bg-bg-tertiary/20 rounded-lg flex flex-col items-center gap-4">
+                                    <p>Nessun ingresso registrato.</p>
+                                    <button
+                                        onClick={async () => {
+                                            if (!confirm('ATTENZIONE: Questo forzerà l\'eliminazione di eventuali "presenze fantasma" di oggi che bloccano il check-in. Continuare?')) return;
+                                            try {
+                                                const { data, error } = await supabase.rpc('force_delete_today_attendance', { p_student_id: student.id });
+                                                if (error) throw error;
+                                                alert('Operazione completata: ' + (data.message || 'Successo'));
+                                                // Reload
+                                                const history = await api.academy.getStudentAttendanceHistory(student.id);
+                                                setCheckins(history);
+                                            } catch (e: any) {
+                                                console.error(e);
+                                                alert('Errore: ' + e.message);
+                                            }
+                                        }}
+                                        className="text-xs text-red-400 hover:text-red-300 underline"
+                                    >
+                                        Sblocca Check-in (Forza Eliminazione Oggi)
+                                    </button>
                                 </div>
                             ) : (
-                                checkins.map((record) => (
-                                    <div key={record.id} className="flex items-center justify-between p-4 bg-bg-tertiary rounded-lg border border-border">
-                                        <div className="flex items-center gap-4">
-                                            <div className="p-3 bg-green-500/10 rounded-lg text-green-500">
-                                                <RefreshingCw size={20} />
+                                checkins.map((record, idx) => {
+                                    if (!record.id) console.error('[DEBUG] Rendering checkin without ID:', record);
+                                    return (
+                                        <div key={record.id || idx} className="flex items-center justify-between p-4 bg-bg-tertiary rounded-lg border border-border">
+                                            <div className="flex items-center gap-4">
+                                                <div className="p-3 bg-green-500/10 rounded-lg text-green-500">
+                                                    <RefreshingCw size={20} />
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-text-primary">Ingresso Registrato</p>
+                                                    <p className="text-xs text-text-muted">Metodo: {record.method}</p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="font-bold text-text-primary">Ingresso Registrato</p>
-                                                <p className="text-xs text-text-muted">Metodo: {record.method}</p>
+                                            <div className="text-right flex items-center gap-4">
+                                                <div>
+                                                    <p className="text-sm font-bold text-text-primary">
+                                                        {new Date(record.check_in_time).toLocaleDateString()}
+                                                    </p>
+                                                    <p className="text-xs text-text-muted">
+                                                        {new Date(record.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={async () => {
+                                                        if (!confirm('Eliminare questo ingresso?')) return;
+                                                        try {
+                                                            await api.academy.deleteStudentAttendance(record.id);
+                                                            setCheckins(prev => prev.filter(c => c.id !== record.id));
+                                                        } catch (e) {
+                                                            console.error(e);
+                                                            alert('Errore eliminazione');
+                                                        }
+                                                    }}
+                                                    className="p-2 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                    title="Elimina Ingresso"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
                                             </div>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-sm font-bold text-text-primary">
-                                                {new Date(record.check_in_time).toLocaleDateString()}
-                                            </p>
-                                            <p className="text-xs text-text-muted">
-                                                {new Date(record.check_in_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                            </p>
-                                        </div>
-                                    </div>
-                                ))
+                                    );
+                                })
                             )}
                         </div>
                     ) : activeTab === 'COURSES' ? (

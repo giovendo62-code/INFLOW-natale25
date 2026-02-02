@@ -24,6 +24,7 @@ export const ClientProfile: React.FC = () => {
     const [waitlistEntry, setWaitlistEntry] = useState<WaitlistEntry | null>(null);
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [consents, setConsents] = useState<ClientConsent[]>([]);
+    const [checkins, setCheckins] = useState<any[]>([]);
     const [selectedAppointments, setSelectedAppointments] = useState<string[]>([]);
     const [activeTab, setActiveTab] = useState('gallery'); // Default to Gallery
     const [loading, setLoading] = useState(true);
@@ -68,6 +69,14 @@ export const ClientProfile: React.FC = () => {
 
             const clientConsents = await api.consents.listClientConsents(clientId);
             setConsents(clientConsents);
+
+            // Fetch Checkins
+            try {
+                const history = await api.academy.getStudentAttendanceHistory(clientId);
+                setCheckins(history);
+            } catch (e) {
+                console.error('Failed to load checkins', e);
+            }
 
             // Fetch Waitlist Entry if exists
             if (data?.id) {
@@ -340,6 +349,17 @@ export const ClientProfile: React.FC = () => {
         }
     };
 
+    const handleDeleteAttendance = async (attendanceId: string) => {
+        if (!confirm('Eliminare questo ingresso? Lo studente potrà effettuare nuovamente il check-in per oggi.')) return;
+        try {
+            await api.academy.deleteStudentAttendance(attendanceId);
+            setCheckins(prev => prev.filter(c => c.id !== attendanceId));
+        } catch (error: any) {
+            console.error('Error deleting attendance:', error);
+            alert('Errore eliminazione: ' + error.message);
+        }
+    };
+
     const totalSpent = appointments.reduce((sum, apt) => sum + (apt.price || 0), 0);
 
     const [downloadingConsent, setDownloadingConsent] = useState<string | null>(null);
@@ -608,6 +628,7 @@ export const ClientProfile: React.FC = () => {
                             { id: 'request', label: 'Richiesta', icon: ClipboardList, visible: !!waitlistEntry },
                             { id: 'gallery', label: 'Galleria', icon: Image, visible: true },
                             { id: 'history', label: 'Storico', icon: Calendar, visible: true },
+                            { id: 'checkins', label: 'Ingressi', icon: ClipboardList, visible: true },
                             { id: 'consents', label: 'Consensi', icon: FileText, visible: true },
                             { id: 'notes', label: 'Note', icon: FileText, visible: true },
                         ].filter(t => t.visible).map(tab => (
@@ -634,6 +655,7 @@ export const ClientProfile: React.FC = () => {
                         <div className="space-y-6">
                             <div className="bg-bg-secondary rounded-lg border border-border p-6">
                                 <h3 className="text-lg font-bold text-white mb-4">Dettagli Richiesta</h3>
+                                {/* ... existing content ... */}
                                 <div className="space-y-4">
                                     <div>
                                         <label className="text-sm text-text-muted">Descrizione Idea</label>
@@ -677,6 +699,47 @@ export const ClientProfile: React.FC = () => {
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'checkins' && (
+                        <div className="space-y-4">
+                            <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                                <ClipboardList size={20} className="text-accent" /> Storico Ingressi
+                            </h3>
+                            {checkins.length === 0 ? (
+                                <div className="bg-bg-secondary rounded-lg border border-border p-8 text-center text-text-muted">
+                                    <ClipboardList size={48} className="mx-auto mb-4 opacity-20" />
+                                    <p>Nessun ingresso registrato.</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {checkins.map((record: any) => (
+                                        <div key={record.id} className="bg-bg-secondary rounded-lg border border-border p-4 flex justify-between items-center group hover:border-red-500/30 transition-colors">
+                                            <div className="flex items-center gap-4">
+                                                <div className="p-3 bg-green-500/10 rounded-lg text-green-500">
+                                                    <ClipboardList size={20} />
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-bold text-white">Ingresso {record.academy_courses?.title || 'Corso'}</h4>
+                                                    <p className="text-sm text-text-muted">
+                                                        {new Date(record.date).toLocaleDateString()}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {(user?.role === 'owner' || user?.role === 'manager') && (
+                                                <button
+                                                    onClick={() => handleDeleteAttendance(record.id)}
+                                                    className="p-2 text-text-muted hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                                    title="Elimina Ingresso"
+                                                >
+                                                    <Trash2 size={18} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
 
