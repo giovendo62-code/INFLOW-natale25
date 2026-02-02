@@ -214,6 +214,7 @@ export interface CourseEnrollment {
   id?: string; // Added for UI compatibility
   studio_id?: string; // RLS optimization
   enrolled_at?: string; // Added for UI compatibility
+  status?: 'active' | 'completed' | 'dropped'; // Added for UI compatibility
   course_id: string;
   student_id: string;
   allowed_days: number;
